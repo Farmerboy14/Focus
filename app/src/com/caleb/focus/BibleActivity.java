@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Typeface;
 import android.os.Bundle;
@@ -55,8 +56,8 @@ public class BibleActivity extends Activity {
         Ui.init(this);
         Ui.deeperTransitions(this);
         sp = Store.get(this).prefs();
-        book = sp.getInt("bible_book", 40);
-        chapter = sp.getInt("bible_ch", 1);
+        book = getIntent().getIntExtra("book", sp.getInt("bible_book", 40));
+        chapter = getIntent().getIntExtra("chapter", sp.getInt("bible_ch", 1));
 
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(0xFF080B14);
@@ -79,6 +80,11 @@ public class BibleActivity extends Activity {
         chapterPill.setTypeface(Ui.SORA_SEMI);
         chapterPill.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) { pickBook(); } });
         top.addView(chapterPill);
+        TextView onPc = Ui.pill(this, "On PC");
+        onPc.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) { Sync.sendBible(BibleActivity.this, book, chapter); } });
+        LinearLayout.LayoutParams op = new LinearLayout.LayoutParams(Ui.WRAP, Ui.WRAP);
+        op.leftMargin = Ui.dp(this, 8);
+        top.addView(onPc, op);
         TextView find = Ui.pill(this, "Search");
         find.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) { openSearch(""); } });
         LinearLayout.LayoutParams fp = new LinearLayout.LayoutParams(Ui.WRAP, Ui.WRAP);
@@ -309,6 +315,12 @@ public class BibleActivity extends Activity {
         count.setText(total == 0 ? "NO VERSES FOUND" : (total + (total == 1 ? " VERSE" : " VERSES") + (total > 600 ? " · SHOWING 600" : "")));
         adapter.q = q.toLowerCase(Locale.US);
         adapter.notifyDataSetChanged();
+    }
+
+    @Override
+    protected void onNewIntent(Intent i) {
+        super.onNewIntent(i);
+        if (i.hasExtra("book") && Bible.loaded()) { show(i.getIntExtra("book", book), i.getIntExtra("chapter", 1), -1); Ui.stagger(title, body); }
     }
 
     @Override

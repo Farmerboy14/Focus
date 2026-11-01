@@ -55,6 +55,8 @@ public final class Store {
     public int defaultWake; // minutes after midnight
     public long wakeAt;      // when you last said you were awake
     public long prevWakeAt;  // what it was before, so a mistaken tap can be undone
+    public long editedAt;    // last change to the day, for syncing with the PC
+    private final Context appCtx;
     public int ytLimitMin;
     public String ytDay = "";
     public long ytUsedMs;
@@ -65,6 +67,7 @@ public final class Store {
     }
 
     private Store(Context c) {
+        appCtx = c;
         sp = c.getSharedPreferences("focus", Context.MODE_PRIVATE);
         load();
     }
@@ -161,6 +164,7 @@ public final class Store {
             defaultWake = o.optInt("defaultWake", defaultWake);
             wakeAt = o.optLong("wakeAt", 0);
             prevWakeAt = o.optLong("prevWakeAt", 0);
+            editedAt = o.optLong("editedAt", 0);
             ytLimitMin = o.optInt("ytLimit", ytLimitMin);
             ytDay = o.optString("ytDay", "");
             ytUsedMs = o.optLong("ytUsed", 0);
@@ -205,6 +209,7 @@ public final class Store {
             o.put("defaultWake", defaultWake);
             o.put("wakeAt", wakeAt);
             o.put("prevWakeAt", prevWakeAt);
+            o.put("editedAt", editedAt);
             o.put("ytLimit", ytLimitMin);
             o.put("ytDay", ytDay);
             o.put("ytUsed", ytUsedMs);
@@ -240,13 +245,53 @@ public final class Store {
     public void wakeNow() {
         prevWakeAt = wakeAt;
         wakeAt = System.currentTimeMillis();
-        save();
+        scheduleChanged();
     }
 
     public void undoWake() {
         wakeAt = prevWakeAt;
         prevWakeAt = 0;
+        scheduleChanged();
+    }
+
+    /** Call after any change to the blocks or wake times: saves and tells the PC. */
+    public void scheduleChanged() {
+        editedAt = System.currentTimeMillis();
         save();
+        Sync.pushState(appCtx);
+    }
+
+    /** Takes the PC's day if it's newer than ours. Returns true when something changed. */
+    public synchronized boolean applyRemote(JSONObject sc) {
+        try {
+            long at = sc.optLong("editedAt", 0);
+            if (at <= editedAt) return false;
+            JSONArray bl = sc.optJSONArray("blocks");
+            if (bl != null && bl.length() > 0) {
+                List<Block> nb = new ArrayList<>();
+                for (int i = 0; i < bl.length(); i++) {
+                    JSONObject b = bl.getJSONObject(i);
+                    String pid = b.optString("preset", "normal");
+                    if (!presets.containsKey(pid)) pid = "normal";
+                    nb.add(new Block(b.optString("title", "Block"), pid, Math.max(5, b.optInt("len", 60))));
+                }
+                blocks.clear();
+                blocks.addAll(nb);
+            }
+            defaultWake = sc.optInt("defaultWake", defaultWake);
+            wakeAt = sc.optLong("wakeAt", wakeAt);
+            prevWakeAt = sc.optLong("prevWakeAt", prevWakeAt);
+            JSONObject names = sc.optJSONObject("names");
+            if (names != null) for (String id : PRESET_IDS) {
+                String n = names.optString(id, null);
+                if (n != null && !n.isEmpty()) presets.get(id).name = n;
+            }
+            editedAt = at;
+            save();
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /** Minutes until the next usual wake time. */

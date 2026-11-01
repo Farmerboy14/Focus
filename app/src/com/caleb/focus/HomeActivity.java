@@ -204,6 +204,7 @@ public class HomeActivity extends Activity {
     protected void onResume() {
         super.onResume();
         render(true);
+        Sync.ensure(this);
         Updater.check(this, false, new Updater.Callback() {
             @Override public void done(Updater.Info newer, String error) { showUpdate(newer); }
         });

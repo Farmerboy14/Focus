@@ -32,6 +32,19 @@
         android:taskAffinity="com.caleb.focus.blocked" android:launchMode="singleTask" android:windowSoftInputMode="adjustResize"/>
     <activity android:name=".LockActivity" android:exported="false" android:showWhenLocked="true" android:excludeFromRecents="true"
         android:launchMode="singleInstance" android:taskAffinity="com.caleb.focus.lock" android:screenOrientation="portrait"/>
+    <activity android:name=".SendToPcActivity" android:exported="true" android:label="Send to PC"
+        android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true"
+        android:taskAffinity="com.caleb.focus.send" android:noHistory="true">
+      <intent-filter>
+        <action android:name="android.intent.action.SEND"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <data android:mimeType="text/plain"/>
+      </intent-filter>
+    </activity>
+    <service android:name=".ClipTileService" android:exported="true" android:label="Clipboard to PC"
+        android:icon="@mipmap/ic_launcher" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+      <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE"/></intent-filter>
+    </service>
     <receiver android:name=".Updater$Receiver" android:exported="false">
       <intent-filter><action android:name="com.caleb.focus.INSTALL_STATUS"/></intent-filter>
     </receiver>

@@ -99,7 +99,7 @@ public class ScheduleActivity extends Activity {
                                 s.blocks.add(new Store.Block("Free time", "free", 60));
                                 s.blocks.add(new Store.Block("Wind down", "strict", 60));
                                 s.blocks.add(new Store.Block("Sleep", "strict", 8 * 60));
-                                s.save();
+                                s.scheduleChanged();
                                 render();
                             }
                         }).setNegativeButton("Cancel", null).show();
@@ -152,7 +152,7 @@ public class ScheduleActivity extends Activity {
         new TimePickerDialog(this, android.R.style.Theme_DeviceDefault_Dialog_Alert, new TimePickerDialog.OnTimeSetListener() {
             @Override public void onTimeSet(TimePicker v, int h, int m) {
                 s.defaultWake = h * 60 + m;
-                s.save();
+                s.scheduleChanged();
                 render();
             }
         }, s.defaultWake / 60, s.defaultWake % 60, false).show();
@@ -211,7 +211,7 @@ public class ScheduleActivity extends Activity {
                         if (t.isEmpty()) blk.title = s.presetName(blk.preset);
                         blk.len = Math.max(5, hp.getValue() * 60 + mp.getValue() * 5);
                         if (isNew) s.blocks.add(blk);
-                        s.save();
+                        s.scheduleChanged();
                         render();
                     }
                 })
@@ -234,7 +234,7 @@ public class ScheduleActivity extends Activity {
                         if (w == 0 && index > 0) s.blocks.add(index - 1, s.blocks.remove(index));
                         else if (w == 1 && index < s.blocks.size() - 1) s.blocks.add(index + 1, s.blocks.remove(index));
                         else if (w == 2) s.blocks.remove(index);
-                        s.save();
+                        s.scheduleChanged();
                         render();
                     }
                 }).show();

@@ -110,6 +110,23 @@ public class SetupActivity extends Activity {
             });
             list.addView(clear);
         }
+        list.addView(Ui.label(this, "Your PC"), Ui.lp(Ui.WRAP, Ui.WRAP, Ui.dp(this, 22)));
+        boolean paired = Sync.paired(this);
+        long heard = Sync.lastHeard();
+        String st = !paired ? "Not connected. Open Focus on your PC → Settings → Pair with phone, then type the code here."
+                : heard > 0 ? "Connected. Last heard from the link " + Math.max(0, (System.currentTimeMillis() - heard) / 60000) + " min ago."
+                : "Paired. Waiting for the link…";
+        TextView pcs = Ui.text(this, st, 13, Ui.MUTED, Ui.SORA);
+        pcs.setLineSpacing(0, 1.3f);
+        list.addView(pcs, Ui.lp(Ui.MATCH, Ui.WRAP, Ui.dp(this, 6)));
+        TextView pair = Ui.chip(this, paired ? "Pair with a different PC" : "Connect to your PC", true);
+        pair.setTextColor(Ui.GOLD);
+        pair.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) { askCode(); } });
+        list.addView(pair, Ui.lp(Ui.WRAP, Ui.WRAP, Ui.dp(this, 10)));
+        TextView how = Ui.text(this, "Send things to the PC: Share → Send to PC, or add the “Clipboard to PC” tile to your quick settings.", 12, Ui.QUIET, Ui.SORA);
+        how.setLineSpacing(0, 1.3f);
+        list.addView(how, Ui.lp(Ui.MATCH, Ui.WRAP, Ui.dp(this, 8)));
+
         LinearLayout lr = Ui.row(this);
         TextView lt = Ui.text(this, "Focus lock screen", 15, Ui.INK, Ui.SORA);
         lr.addView(lt, new LinearLayout.LayoutParams(0, Ui.WRAP, 1f));
@@ -154,6 +171,34 @@ public class SetupActivity extends Activity {
         list.addView(upd, Ui.lp(Ui.MATCH, Ui.WRAP, Ui.dp(this, 8)));
         TextView ver = Ui.mono(this, "Focus " + Updater.installedName(this), 10, 0xFF5E5B55);
         list.addView(ver, Ui.lp(Ui.WRAP, Ui.WRAP, Ui.dp(this, 20)));
+    }
+
+    private void askCode() {
+        final android.widget.EditText in = new android.widget.EditText(this);
+        in.setHint("XXXX-XXXX-XXXX-XXXX");
+        in.setSingleLine(true);
+        in.setTypeface(Ui.MONO);
+        in.setTextColor(Ui.INK);
+        in.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        android.widget.FrameLayout box = new android.widget.FrameLayout(this);
+        box.setPadding(Ui.dp(this, 24), Ui.dp(this, 8), Ui.dp(this, 24), 0);
+        box.addView(in);
+        new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle("Pairing code from your PC")
+                .setView(box)
+                .setPositiveButton("Connect", new android.content.DialogInterface.OnClickListener() {
+                    @Override public void onClick(android.content.DialogInterface d, int w) {
+                        String code = Sync.normalize(in.getText().toString());
+                        if (code.length() != 16) {
+                            android.widget.Toast.makeText(SetupActivity.this, "That code should be 16 letters and numbers.", android.widget.Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        Sync.pair(SetupActivity.this, code);
+                        android.widget.Toast.makeText(SetupActivity.this, "Connecting to your PC…", android.widget.Toast.LENGTH_SHORT).show();
+                        render();
+                    }
+                })
+                .setNegativeButton("Cancel", null).show();
     }
 
     private void step(String num, String title, String body, boolean done, final Runnable go) {

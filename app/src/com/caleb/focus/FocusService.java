@@ -82,6 +82,7 @@ public class FocusService extends AccessibilityService {
         } catch (Throwable ignored) { }
         h.removeCallbacks(tick);
         h.post(tick);
+        Sync.ensure(this);
     }
 
     @Override
@@ -260,6 +261,7 @@ public class FocusService extends AccessibilityService {
             s.save();
             enforceYouTube(now);
         }
+        Sync.ensure(this);
         Store.Preset p = s.currentPreset(now);
         if (!p.id.equals(lastPresetId)) {
             lastPresetId = p.id;
