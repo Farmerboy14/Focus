@@ -1,6 +1,6 @@
 {
-  "code": 3,
-  "name": "0.3",
-  "notes": "Clock centered, and the wallpaper now matches Focus.",
+  "code": 4,
+  "name": "0.4",
+  "notes": "Your day now keeps its times when the clocks change.",
   "apk": "https://raw.githubusercontent.com/Farmerboy14/focus/main/release/Focus.apk"
 }

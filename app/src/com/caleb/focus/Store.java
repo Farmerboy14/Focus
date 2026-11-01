@@ -252,15 +252,30 @@ public final class Store {
 
     public List<Slot> slots(long now) {
         List<Slot> out = new ArrayList<>();
-        long t = anchor(now);
+        long a = anchor(now);
+        long off = 0;
         for (int i = 0; i < blocks.size(); i++) {
             Block b = blocks.get(i);
             Slot s = new Slot();
-            s.title = b.title; s.preset = b.preset; s.start = t; s.end = t + b.len * MIN; s.index = i;
+            s.title = b.title; s.preset = b.preset; s.index = i;
+            s.start = wall(a, off);
+            off += b.len;
+            s.end = wall(a, off);
             out.add(s);
-            t = s.end;
         }
         return out;
+    }
+
+    /** Clock time a number of minutes after the anchor, counted on the wall clock so daylight saving doesn't shift the day. */
+    private static long wall(long anchor, long offsetMin) {
+        Calendar c = Calendar.getInstance();
+        c.setTimeInMillis(anchor);
+        long total = c.get(Calendar.HOUR_OF_DAY) * 60L + c.get(Calendar.MINUTE) + offsetMin;
+        c.add(Calendar.DAY_OF_MONTH, (int) (total / 1440));
+        long m = total % 1440;
+        c.set(Calendar.HOUR_OF_DAY, (int) (m / 60));
+        c.set(Calendar.MINUTE, (int) (m % 60));
+        return c.getTimeInMillis();
     }
 
     public Slot current(long now) {
