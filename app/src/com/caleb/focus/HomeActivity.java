@@ -158,18 +158,19 @@ public class HomeActivity extends Activity {
 
     /**
      * Android's app-switching animation shows the phone's wallpaper around the edges.
-     * Setting the home wallpaper to the same night sky makes those edges match Focus.
+     * Setting the home and lock screen wallpaper to the same night sky makes those edges match Focus.
      */
     public static void matchWallpaper(final android.content.Context ctx, boolean force) {
         final android.content.Context c = ctx.getApplicationContext();
         final android.content.SharedPreferences sp = Store.get(c).prefs();
-        if (!force && sp.getBoolean("wallMatched", false)) return;
-        sp.edit().putBoolean("wallMatched", true).apply();
+        if (!force && sp.getBoolean("wallMatched2", false)) return;
+        sp.edit().putBoolean("wallMatched2", true).apply();
         new Thread(new Runnable() {
             @Override public void run() {
                 try {
                     android.graphics.Bitmap b = android.graphics.BitmapFactory.decodeResource(c.getResources(), R.drawable.sky_night);
-                    android.app.WallpaperManager.getInstance(c).setBitmap(b, null, true, android.app.WallpaperManager.FLAG_SYSTEM);
+                    android.app.WallpaperManager.getInstance(c).setBitmap(b, null, true,
+                            android.app.WallpaperManager.FLAG_SYSTEM | android.app.WallpaperManager.FLAG_LOCK);
                 } catch (Throwable ignored) { }
             }
         }).start();

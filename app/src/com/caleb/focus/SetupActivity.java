@@ -110,7 +110,7 @@ public class SetupActivity extends Activity {
             });
             list.addView(clear);
         }
-        TextView wall = Ui.chip(this, "Use the Focus night sky as wallpaper", false);
+        TextView wall = Ui.chip(this, "Use the Focus night sky on home and lock screen", false);
         wall.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
                 HomeActivity.matchWallpaper(SetupActivity.this, true);
