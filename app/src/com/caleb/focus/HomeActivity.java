@@ -32,6 +32,7 @@ public class HomeActivity extends Activity {
     private FlowLayout apps;
     private TextView action;
     private String shownKey = "";
+    private long undoUntil;
 
     private final Runnable refresh = new Runnable() {
         @Override public void run() { render(false); h.postDelayed(this, 30_000); }
@@ -308,15 +309,27 @@ public class HomeActivity extends Activity {
             action.setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) { Ui.open(HomeActivity.this, GodActivity.class); }
             });
+        } else if (now < undoUntil) {
+            action.setVisibility(View.VISIBLE);
+            action.setText("Day started at " + Ui.clock(s.wakeAt) + " · Undo");
+            action.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    s.undoWake();
+                    undoUntil = 0;
+                    Ui.vibrate(HomeActivity.this);
+                    render(true);
+                }
+            });
         } else if (asleep || morning) {
             action.setVisibility(View.VISIBLE);
             action.setText(asleep ? "I'm awake. Start my day" : "I just woke up. Start from now");
             action.setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) {
-                    s.wakeAt = System.currentTimeMillis();
-                    s.save();
+                    s.wakeNow();
+                    undoUntil = System.currentTimeMillis() + 10_000;
                     Ui.vibrate(HomeActivity.this);
                     render(true);
+                    h.postDelayed(new Runnable() { @Override public void run() { render(false); } }, 10_200);
                 }
             });
         } else {

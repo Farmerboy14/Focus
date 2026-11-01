@@ -26,7 +26,7 @@ import java.util.Locale;
 /** Today: blocks laid end to end from the moment you wake up. Tap a block to change it. */
 public class ScheduleActivity extends Activity {
     private LinearLayout list;
-    private TextView sub, wakeBtn;
+    private TextView sub, wakeBtn, woke;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -58,13 +58,13 @@ public class ScheduleActivity extends Activity {
         col.addView(sub, Ui.lp(Ui.MATCH, Ui.WRAP, Ui.dp(this, 6)));
 
         LinearLayout btns = Ui.row(this);
-        TextView woke = Ui.chip(this, "I just woke up", true);
+        woke = Ui.chip(this, "I just woke up", true);
         woke.setTextColor(Ui.GOLD);
         woke.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
                 Store s = Store.get(ScheduleActivity.this);
-                s.wakeAt = System.currentTimeMillis();
-                s.save();
+                if (s.dayStartedByTap(System.currentTimeMillis())) s.undoWake();
+                else s.wakeNow();
                 Ui.vibrate(ScheduleActivity.this);
                 render();
             }
@@ -118,6 +118,7 @@ public class ScheduleActivity extends Activity {
         c.set(Calendar.HOUR_OF_DAY, s.defaultWake / 60);
         c.set(Calendar.MINUTE, s.defaultWake % 60);
         wakeBtn.setText("Usual wake " + Ui.clock(c.getTimeInMillis()));
+        woke.setText(s.dayStartedByTap(now) ? "Undo wake-up" : "I just woke up");
         sub.setText(s.dayStartedByTap(now)
                 ? "Your day started when you woke at " + Ui.clock(s.wakeAt) + ". Each block follows the one before it."
                 : "Using your usual wake time. Tap “I just woke up” and the whole day shifts to start now.");

@@ -54,6 +54,7 @@ public final class Store {
     public final Set<String> pins = new HashSet<>();
     public int defaultWake; // minutes after midnight
     public long wakeAt;      // when you last said you were awake
+    public long prevWakeAt;  // what it was before, so a mistaken tap can be undone
     public int ytLimitMin;
     public String ytDay = "";
     public long ytUsedMs;
@@ -159,6 +160,7 @@ public final class Store {
             if (pn != null) for (int i = 0; i < pn.length(); i++) pins.add(pn.getString(i));
             defaultWake = o.optInt("defaultWake", defaultWake);
             wakeAt = o.optLong("wakeAt", 0);
+            prevWakeAt = o.optLong("prevWakeAt", 0);
             ytLimitMin = o.optInt("ytLimit", ytLimitMin);
             ytDay = o.optString("ytDay", "");
             ytUsedMs = o.optLong("ytUsed", 0);
@@ -202,6 +204,7 @@ public final class Store {
             o.put("pins", pn);
             o.put("defaultWake", defaultWake);
             o.put("wakeAt", wakeAt);
+            o.put("prevWakeAt", prevWakeAt);
             o.put("ytLimit", ytLimitMin);
             o.put("ytDay", ytDay);
             o.put("ytUsed", ytUsedMs);
@@ -232,6 +235,18 @@ public final class Store {
         // An early wake tap (before today's usual time, or after it) keeps owning the day; its blocks have ended, so it's open time.
         if (wakeAt > 0 && wakeAt <= now && wakeAt > t - 6 * HOUR) return wakeAt;
         return t;
+    }
+
+    public void wakeNow() {
+        prevWakeAt = wakeAt;
+        wakeAt = System.currentTimeMillis();
+        save();
+    }
+
+    public void undoWake() {
+        wakeAt = prevWakeAt;
+        prevWakeAt = 0;
+        save();
     }
 
     /** Minutes until the next usual wake time. */
