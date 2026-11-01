@@ -1,6 +1,6 @@
 {
-  "code": 2,
-  "name": "0.2",
-  "notes": "Updates now install from inside Focus.",
+  "code": 3,
+  "name": "0.3",
+  "notes": "Clock centered, and the wallpaper now matches Focus.",
   "apk": "https://raw.githubusercontent.com/Farmerboy14/focus/main/release/Focus.apk"
 }

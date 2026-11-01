@@ -110,6 +110,15 @@ public class SetupActivity extends Activity {
             });
             list.addView(clear);
         }
+        TextView wall = Ui.chip(this, "Use the Focus night sky as wallpaper", false);
+        wall.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                HomeActivity.matchWallpaper(SetupActivity.this, true);
+                android.widget.Toast.makeText(SetupActivity.this, "Wallpaper set.", android.widget.Toast.LENGTH_SHORT).show();
+            }
+        });
+        list.addView(wall, Ui.lp(Ui.WRAP, Ui.WRAP, Ui.dp(this, 12)));
+
         list.addView(Ui.label(this, "Updates"), Ui.lp(Ui.WRAP, Ui.WRAP, Ui.dp(this, 22)));
         final TextView upd = Ui.goldButton(this, "Check for updates");
         upd.setOnClickListener(new View.OnClickListener() {

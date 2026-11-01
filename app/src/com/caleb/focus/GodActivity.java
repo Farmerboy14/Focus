@@ -64,10 +64,14 @@ public class GodActivity extends Activity {
         LinearLayout center = Ui.column(this);
         center.setGravity(Gravity.CENTER);
         big = Ui.text(this, "", 60, Ui.INK, Ui.SORA_LIGHT);
-        big.setLetterSpacing(-0.05f);
+        big.setLetterSpacing(-0.03f);
+        big.setFontFeatureSettings("tnum");
+        big.setGravity(Gravity.CENTER);
+        big.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
         sub = Ui.label(this, "");
-        center.addView(big);
-        center.addView(sub, Ui.lp(Ui.WRAP, Ui.WRAP, Ui.dp(this, 8)));
+        center.addView(big, Ui.lp(Ui.MATCH, Ui.WRAP));
+        sub.setGravity(Gravity.CENTER);
+        center.addView(sub, Ui.lp(Ui.MATCH, Ui.WRAP, Ui.dp(this, 8)));
         center.addView(Ui.text(this, "Time with God", 15, Ui.INK, Ui.SORA_MED), Ui.lp(Ui.WRAP, Ui.WRAP, Ui.dp(this, 8)));
         df.addView(center, new FrameLayout.LayoutParams(size, size));
         LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(size, size);

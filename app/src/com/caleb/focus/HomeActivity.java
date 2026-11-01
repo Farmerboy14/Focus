@@ -98,14 +98,18 @@ public class HomeActivity extends Activity {
         LinearLayout center = Ui.column(this);
         center.setGravity(Gravity.CENTER);
         big = Ui.text(this, "", 66, Ui.INK, Ui.SORA_LIGHT);
-        big.setLetterSpacing(-0.05f);
+        big.setLetterSpacing(-0.03f);
+        big.setFontFeatureSettings("tnum");
+        big.setGravity(Gravity.CENTER);
+        big.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
         sub = Ui.label(this, "");
         title = Ui.text(this, "", 15, Ui.INK, Ui.SORA_MED);
         title.setGravity(Gravity.CENTER);
-        title.setMaxWidth(Ui.dp(this, 180));
-        center.addView(big);
-        center.addView(sub, Ui.lp(Ui.WRAP, Ui.WRAP, Ui.dp(this, 8)));
-        center.addView(title, Ui.lp(Ui.WRAP, Ui.WRAP, Ui.dp(this, 8)));
+        title.setPadding(Ui.dp(this, 70), 0, Ui.dp(this, 70), 0);
+        center.addView(big, Ui.lp(Ui.MATCH, Ui.WRAP));
+        sub.setGravity(Gravity.CENTER);
+        center.addView(sub, Ui.lp(Ui.MATCH, Ui.WRAP, Ui.dp(this, 8)));
+        center.addView(title, Ui.lp(Ui.MATCH, Ui.WRAP, Ui.dp(this, 8)));
         dialFrame.addView(center, new FrameLayout.LayoutParams(dialSize, dialSize));
         dialFrame.setClickable(true);
         dialFrame.setOnClickListener(new View.OnClickListener() {
@@ -144,11 +148,31 @@ public class HomeActivity extends Activity {
         col.addView(nav, Ui.lp(Ui.MATCH, Ui.WRAP));
 
         setContentView(root);
+        matchWallpaper(this, false);
 
         if (Build.VERSION.SDK_INT >= 33) {
             getOnBackInvokedDispatcher().registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT,
                     new OnBackInvokedCallback() { @Override public void onBackInvoked() { } });
         }
+    }
+
+    /**
+     * Android's app-switching animation shows the phone's wallpaper around the edges.
+     * Setting the home wallpaper to the same night sky makes those edges match Focus.
+     */
+    public static void matchWallpaper(final android.content.Context ctx, boolean force) {
+        final android.content.Context c = ctx.getApplicationContext();
+        final android.content.SharedPreferences sp = Store.get(c).prefs();
+        if (!force && sp.getBoolean("wallMatched", false)) return;
+        sp.edit().putBoolean("wallMatched", true).apply();
+        new Thread(new Runnable() {
+            @Override public void run() {
+                try {
+                    android.graphics.Bitmap b = android.graphics.BitmapFactory.decodeResource(c.getResources(), R.drawable.sky_night);
+                    android.app.WallpaperManager.getInstance(c).setBitmap(b, null, true, android.app.WallpaperManager.FLAG_SYSTEM);
+                } catch (Throwable ignored) { }
+            }
+        }).start();
     }
 
     private void showUpdate(Updater.Info newer) {
