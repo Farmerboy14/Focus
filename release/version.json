@@ -1,6 +1,6 @@
 {
-  "code": 6,
-  "name": "0.6",
-  "notes": "New Focus lock screen. Turn it off in Setup if you don't want it.",
-  "apk": "https://raw.githubusercontent.com/Farmerboy14/focus/main/release/Focus.apk"
+  "code": 7,
+  "name": "0.7",
+  "notes": "New Focus lock screen, and updates show up right away.",
+  "apk": "https://api.github.com/repos/Farmerboy14/focus/contents/release/Focus.apk?ref=main"
 }

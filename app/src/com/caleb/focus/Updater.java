@@ -69,7 +69,13 @@ public final class Updater {
                 Info found = null;
                 String err = null;
                 try {
-                    byte[] b = get(BASE + "version.json?t=" + System.currentTimeMillis());
+                    byte[] b;
+                    try {
+                        // GitHub's API is never stale; the raw file can lag by a few minutes.
+                        b = get("https://api.github.com/repos/Farmerboy14/focus/contents/release/version.json?ref=main");
+                    } catch (Throwable apiFailed) {
+                        b = get(BASE + "version.json?t=" + System.currentTimeMillis());
+                    }
                     JSONObject o = new JSONObject(new String(b, "UTF-8"));
                     Info i = new Info();
                     i.code = o.getInt("code");
@@ -98,6 +104,8 @@ public final class Updater {
             con.setReadTimeout(30000);
             con.setInstanceFollowRedirects(true);
             con.setRequestProperty("Cache-Control", "no-cache");
+            con.setUseCaches(false);
+            if (url.contains("api.github.com")) con.setRequestProperty("Accept", "application/vnd.github.raw+json");
             int code = con.getResponseCode();
             if (code >= 300 && code < 400 && con.getHeaderField("Location") != null) {
                 url = con.getHeaderField("Location");
