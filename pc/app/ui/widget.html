@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'">
+<title>Focus widget</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  html, body { background: transparent; }
+  .w { position: absolute; inset: 5px; display: grid; grid-template-columns: 86px minmax(0, 1fr); align-items: center; gap: 12px; padding: 0 16px 0 8px; border-radius: 22px; cursor: pointer;
+    background-color: rgba(7, 9, 14, .86); background-image: var(--grain); background-size: 120px; border: 1px solid rgba(170, 207, 246, .16);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05), 0 4px 18px rgba(0, 0, 0, .45); transition: transform .26s var(--press), border-color .4s ease; overflow: hidden; }
+  .w:hover { border-color: rgba(170, 207, 246, .3); }
+  .w.press { transform: scale(.97); transition-duration: .06s; }
+  .w.gold { border-color: rgba(242, 211, 138, .3); }
+  .w .sky { opacity: .5; border-radius: 22px; }
+  .w .sky img { animation-duration: 120s; }
+  .mini { position: relative; width: 86px; height: 86px; z-index: 1; }
+  .mini .dialhost, .mini svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .info { position: relative; z-index: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .title { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .w.gold .title { color: var(--gold); }
+  .left { font-size: 26px; font-weight: 300; letter-spacing: -.04em; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .left small { font-size: 11px; letter-spacing: .1em; color: var(--muted); font-family: var(--mono); margin-left: 6px; }
+  .next { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+</style>
+</head>
+<body>
+<div class="w it" id="w" role="button" aria-label="Open Focus" tabindex="0">
+  <div class="sky" id="sky" aria-hidden="true"><img src="../res/img/sky_night.jpg" alt=""><img class="dawn" src="../res/img/sky_dawn.jpg" alt=""></div>
+  <div class="mini"><div class="dialhost" id="dial"></div></div>
+  <div class="info">
+    <span class="title" id="title"></span>
+    <span class="left"><span id="left">0:00</span><small>LEFT</small></span>
+    <span class="next" id="next"></span>
+  </div>
+</div>
+<script src="../lib/schedule.js"></script>
+<script src="common.js"></script>
+<script src="widget.js"></script>
+</body>
+</html>

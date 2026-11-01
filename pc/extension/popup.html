@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Focus</title>
+<style>
+  @font-face { font-family: 'Sora'; font-weight: 300; src: url(res/sora_light.ttf); }
+  @font-face { font-family: 'Sora'; font-weight: 400; src: url(res/sora_regular.ttf); }
+  @font-face { font-family: 'Sora'; font-weight: 600; src: url(res/sora_semibold.ttf); }
+  @font-face { font-family: 'JetBrains Mono'; src: url(res/mono_regular.ttf); }
+  body { margin: 0; width: 280px; padding: 16px; background: #0A0C12 url(res/grain.png); background-size: 120px; color: #EEF0F3; font-family: 'Sora', 'Segoe UI', sans-serif; }
+  .label { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: .12em; color: #A9ACB2; text-transform: uppercase; }
+  h1 { margin: 4px 0 2px; font-size: 24px; font-weight: 300; letter-spacing: -.03em; }
+  .until { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #C9A85A; letter-spacing: .08em; }
+  .yt { margin: 14px 0; font-size: 13px; color: #C9CCD2; }
+  .bar { height: 4px; border-radius: 4px; background: rgba(170, 207, 246, .14); margin-top: 6px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: #AACFF6; border-radius: 4px; }
+  button { width: 100%; min-height: 42px; font: inherit; font-size: 13px; font-weight: 600; color: #F2D38A; cursor: pointer; background: rgba(6, 9, 16, .6) url(res/grain.png); background-size: 120px;
+    border: 1px solid rgba(242, 211, 138, .3); border-radius: 14px; transition: transform .26s cubic-bezier(.3, 1.7, .5, 1); }
+  button:active { transform: scale(.97); }
+  .off { font-size: 13px; color: #C9CCD2; line-height: 1.5; }
+  .msg { margin-top: 8px; font-size: 12px; color: #A9ACB2; min-height: 16px; text-align: center; }
+</style>
+</head>
+<body>
+<div id="on">
+  <span class="label" id="preset">FOCUS</span>
+  <h1 id="block">…</h1>
+  <span class="until" id="until"></span>
+  <div class="yt" id="yt"></div>
+</div>
+<p class="off" id="off" hidden>Focus for Windows isn't running, so nothing is blocked. Open it from the Start menu.</p>
+<button id="send">Send this page to phone</button>
+<div class="msg" id="msg"></div>
+<script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,100 @@
+/* Focus for Windows: the phone's look. Night sky, obsidian stone, gold for Time with God. */
+@font-face { font-family: 'Sora'; font-weight: 300; src: url(../res/fonts/sora_light.ttf); }
+@font-face { font-family: 'Sora'; font-weight: 400; src: url(../res/fonts/sora_regular.ttf); }
+@font-face { font-family: 'Sora'; font-weight: 500; src: url(../res/fonts/sora_medium.ttf); }
+@font-face { font-family: 'Sora'; font-weight: 600; src: url(../res/fonts/sora_semibold.ttf); }
+@font-face { font-family: 'Newsreader'; font-weight: 400; src: url(../res/fonts/news_regular.ttf); }
+@font-face { font-family: 'Newsreader'; font-weight: 500; src: url(../res/fonts/news_medium.ttf); }
+@font-face { font-family: 'Newsreader'; font-weight: 400; font-style: italic; src: url(../res/fonts/news_italic.ttf); }
+@font-face { font-family: 'JetBrains Mono'; font-weight: 400; src: url(../res/fonts/mono_regular.ttf); }
+
+:root {
+  color-scheme: dark;
+  --bg: #07090E; --ground: #05070C; --ink: #EEF0F3; --muted: #A9ACB2; --quiet: #8E8A80; --soft: #C9CCD2;
+  --gold: #F2D38A; --gold-deep: #C9A85A; --ice: #AACFF6; --ice-soft: #CFE0FA;
+  --stone: rgba(6, 9, 16, 0.55); --stone-solid: #0A0C12; --line: rgba(160, 190, 240, 0.14);
+  --sans: 'Sora', 'Segoe UI', system-ui, sans-serif; --serif: 'Newsreader', Georgia, serif; --mono: 'JetBrains Mono', Consolas, ui-monospace, monospace;
+  --emph: cubic-bezier(.2, 0, 0, 1); --spring: cubic-bezier(.2, 1.18, .32, 1); --press: cubic-bezier(.3, 1.7, .5, 1);
+  --grain: url(../res/img/grain.png);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 14px; overflow: clip; user-select: none; -webkit-font-smoothing: antialiased; }
+input, textarea, select, button { font: inherit; color: inherit; }
+input, textarea { user-select: text; }
+::selection { background: rgba(242, 211, 138, .3); }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.mono { font-family: var(--mono); }
+.serif { font-family: var(--serif); }
+.label { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
+.muted { color: var(--muted); }
+.gold { color: var(--gold); }
+.hidden { display: none !important; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(170, 207, 246, .14); border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: rgba(170, 207, 246, .26); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Obsidian stone: dark, grainy, a soft inner shadow, and a spring when pressed */
+.stone, .btn, .chip, .gchip, .pill, .goldbtn, .seg button, .card {
+  background-color: var(--stone); background-image: var(--grain); background-size: 120px 120px;
+  border: 1px solid rgba(170, 207, 246, .12); box-shadow: inset 0 1px 3px rgba(0, 0, 0, .55), 0 1px 0 rgba(255, 255, 255, .04);
+}
+button { cursor: pointer; border: 0; background: none; padding: 0; transition: transform .26s var(--press), filter .2s ease, background-color .2s ease, border-color .2s ease, color .2s ease; }
+button:active:not(:disabled) { transform: translateY(1px) scale(.97); filter: brightness(.88); transition-duration: .06s; }
+button.plain:active { transform: none; filter: none; }
+button:disabled { opacity: .45; cursor: default; }
+.btn { white-space: nowrap; min-height: 40px; padding: 0 16px; border-radius: 14px; font-size: 13px; color: #E6E9EF; }
+.btn:hover:not(:disabled), .chip:hover, .gchip:hover, .pill:hover { border-color: rgba(170, 207, 246, .26); }
+.chip { min-height: 34px; padding: 0 14px; border-radius: 999px; font-size: 13px; color: #E6E9EF; }
+.gchip { min-height: 38px; padding: 0 16px; border-radius: 999px; font-size: 13px; color: var(--ink); border-color: rgba(242, 211, 138, .14); }
+.gchip:hover { border-color: rgba(242, 211, 138, .34); }
+.pill { min-height: 36px; padding: 0 14px; border-radius: 999px; font-size: 13px; color: var(--gold); border-color: rgba(242, 211, 138, .14); }
+.goldbtn { min-height: 50px; padding: 0 22px; border-radius: 16px; font-size: 15px; font-weight: 600; color: var(--gold); background-color: rgba(6, 9, 16, .6); border-color: rgba(242, 211, 138, .30); box-shadow: inset 0 1px 3px rgba(0, 0, 0, .6), 0 1px 0 rgba(255, 255, 255, .04); }
+.goldbtn:hover:not(:disabled) { border-color: rgba(242, 211, 138, .55); }
+.card { border-radius: 18px; border-color: rgba(170, 207, 246, .1); }
+.field { min-height: 38px; padding: 0 12px; border-radius: 12px; background: rgba(4, 6, 11, .7); border: 1px solid rgba(170, 207, 246, .14); box-shadow: inset 0 1px 3px rgba(0, 0, 0, .6); color: var(--ink); outline: none; }
+.field:focus { border-color: rgba(242, 211, 138, .45); }
+select.field { appearance: none; padding-right: 30px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23A9ACB2' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; cursor: pointer; }
+select.field option { background: #0A0C12; color: var(--ink); }
+textarea.field { padding: 10px 12px; resize: none; line-height: 1.5; }
+
+/* Segmented control */
+.seg { display: inline-flex; gap: 4px; padding: 3px; border-radius: 12px; background: rgba(3, 5, 9, .55); border: 1px solid rgba(255, 255, 255, .05); }
+.seg button { min-height: 28px; padding: 0 10px; border-radius: 9px; font-size: 12px; color: var(--muted); background-image: none; background-color: transparent; border-color: transparent; box-shadow: none; }
+.seg button.on { color: var(--ink); background-color: rgba(20, 26, 40, .9); background-image: var(--grain); border-color: rgba(170, 207, 246, .2); }
+.seg button.on.allow { color: #BFE3C8; border-color: rgba(150, 220, 170, .3); }
+.seg button.on.reason { color: var(--gold); border-color: rgba(242, 211, 138, .35); }
+.seg button.on.block { color: #F1B5A8; border-color: rgba(240, 160, 140, .3); }
+
+/* Toggle */
+.toggle { position: relative; width: 44px; height: 26px; border-radius: 999px; background: rgba(3, 5, 9, .7); border: 1px solid rgba(170, 207, 246, .16); box-shadow: inset 0 1px 3px rgba(0, 0, 0, .6); flex-shrink: 0; }
+.toggle::after { content: ''; position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: #5B6170; transition: transform .38s var(--spring), background-color .2s ease; }
+.toggle.on { border-color: rgba(242, 211, 138, .45); }
+.toggle.on::after { transform: translateX(18px); background: var(--gold); }
+
+/* Sky, with a slow drift */
+.sky { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+.sky img { position: absolute; inset: -4%; width: 108%; height: 108%; object-fit: cover; animation: drift 90s ease-in-out infinite alternate; }
+.sky .dawn { opacity: 0; transition: opacity 1.3s ease; }
+.sky.dawn .dawn { opacity: 1; }
+.sky .veil { position: absolute; inset: 0; background: var(--ground); opacity: 0; transition: opacity 1.1s ease; }
+@keyframes drift { 0% { transform: translate(-1.6%, -1%) scale(1.02); } 100% { transform: translate(1.6%, 1.2%) scale(1.06); } }
+.dust { position: absolute; border-radius: 50%; background: #F2F4FF; animation: twinkle var(--t) ease-in-out var(--dl) infinite; }
+@keyframes twinkle { 0%, 100% { opacity: var(--o); } 50% { opacity: calc(var(--o) * .25); } }
+
+/* Items rise in on a stagger and slip out fast */
+.it { opacity: 0; transform: translateY(10px); transition: opacity .15s ease, transform .15s ease; }
+.active .it, .it.in { opacity: 1; transform: none; transition: opacity .42s ease calc(var(--b, 60ms) + var(--i, 0) * 40ms), transform .62s var(--emph) calc(var(--b, 60ms) + var(--i, 0) * 40ms); }
+
+/* Dial */
+.dial { overflow: visible; display: block; }
+.dial .tk { stroke-linecap: round; transition: stroke .3s ease; }
+.dial .halo { transition: opacity .3s ease; }
+.dial .nowstar { transform-box: fill-box; transform-origin: center; animation: breathe 10s ease-in-out infinite; }
+.dial.gold .tk.on.glint { animation: glint 7s linear calc(1.4s + var(--i) * 60ms) infinite; }
+@keyframes glint { 0% { stroke: #FFF4D6; } 5%, 100% { stroke: #F2D38A; } }
+@keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0s !important; transition-delay: 0s !important; animation: none !important; }
+}

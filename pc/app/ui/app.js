@@ -1,0 +1,753 @@
+// The main Focus window: Home, Today, Presets, Time with God, Bible, Prayer journal, Settings.
+(function () {
+  'use strict';
+  const api = window.focusApp;
+  const S = window.FocusSchedule;
+  const B = window.FocusBible;
+  const U = window.FocusUI;
+  const el = U.el;
+  const $ = function (id) { return document.getElementById(id); };
+  const ALLOW = 0, REASON = 1, BLOCK = 2;
+  const PRESETS = ['god', 'strict', 'work', 'normal', 'free'];
+
+  let st = null;            // the latest snapshot from the app
+  let view = 'home';
+  let flow = '';            // 'god' when Bible or the journal was opened from Time with God
+  let undoUntil = 0;
+  let shownKey = '';
+  let bible = null, bibleLoading = null;
+  let bookSel = 0, chapSel = 1;
+  let presetSel = null;
+  let journal = null;       // entries while unlocked, null while locked
+  let jKind = 'Request';
+  let todayDirty = false;
+
+  const win = $('win');
+  U.dust($('dust'), 26, 13);
+
+  const homeDial = U.Dial($('homeDial'), { gold: false });
+  const godDial = U.Dial($('godDial'), { gold: true });
+
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(function () { t.classList.remove('show'); }, 2600);
+  }
+
+  function call(name, arg) {
+    return api.invoke(name, arg).then(function (r) {
+      if (r && r.error) toast(r.error);
+      return r;
+    }, function (e) { toast('Something went wrong.'); console.error(e); return null; });
+  }
+
+  function now() { return Date.now(); }
+  function upper(s) { return String(s).toUpperCase(); }
+  function presetName(id) { return (st && st.sched.names[id]) || id; }
+  function dayLabel(t) { return new Date(t).toLocaleDateString('en-US', { weekday: 'short' }); }
+
+  // ---------- navigation ----------
+
+  const FULL = { god: true, rest: true };
+  function isFull(v) { return !!FULL[v] || ((v === 'bible' || v === 'journal') && flow === 'god'); }
+
+  function go(v, opts) {
+    opts = opts || {};
+    if (v === 'pause') { if (view === 'rest' || isFull(view)) go('home'); openPause(); return; }
+    if (v === 'god' || v === 'rest') flow = 'god';
+    else if (v === 'bible' || v === 'journal') flow = opts.fromGod || (view === v && flow === 'god') ? 'god' : '';
+    else flow = '';
+    if (view === 'journal' && v !== 'journal') lockJournal();
+    const changed = v !== view;
+    view = v;
+    win.dataset.view = v;
+    document.querySelectorAll('.nav').forEach(function (n) { n.classList.toggle('on', n.dataset.go === v || (v === 'rest' && n.dataset.go === 'god')); });
+    const full = isFull(v);
+    win.classList.toggle('full', full);
+    $('bibleBack').classList.toggle('hidden', flow !== 'god');
+    $('journalBack').classList.toggle('hidden', flow !== 'god');
+    api.invoke('win:fullscreen', full).catch(function () { });
+    document.querySelectorAll('.view').forEach(function (s) {
+      const on = s.id === 'v-' + v;
+      if (on && changed) { s.classList.remove('active'); void s.offsetWidth; }
+      s.classList.toggle('active', on);
+    });
+    render(changed);
+    if (v === 'presets') api.invoke('procs:refresh').catch(function () { });
+    if (v === 'bible') ensureBible().then(function () { renderBible(); if (opts.book != null) openChapter(opts.book, opts.chapter || 1); });
+  }
+
+  document.querySelectorAll('[data-go]').forEach(function (b) {
+    b.addEventListener('click', function () { go(b.dataset.go, { fromGod: view === 'god' }); });
+  });
+
+  // ---------- render ----------
+
+  function render(entering) {
+    if (!st) return;
+    const t = now();
+    const cur = st.cur;
+    const god = cur.preset === 'god';
+    win.classList.toggle('god', god);
+    $('sky').classList.toggle('dawn', god || isFull(view));
+    $('blockpill').textContent = cur.index < 0 ? 'Open time' : cur.title;
+    renderClock();
+    renderLink();
+    if (view === 'home') renderHome(entering);
+    else if (view === 'today') renderToday();
+    else if (view === 'presets') renderPresets();
+    else if (view === 'god') renderGod(entering);
+    else if (view === 'rest') renderRest();
+    else if (view === 'settings') renderSettings();
+    else if (view === 'journal') renderJournal();
+    void t;
+  }
+
+  function renderClock() {
+    const d = new Date();
+    $('clock').textContent = upper(S.clock(d.getTime()) + ' · ' + dayLabel(d));
+  }
+
+  function renderLink() {
+    const ls = $('linkstat');
+    const s = st.pair.status;
+    ls.className = 'linkstat ' + s;
+    ls.querySelector('.txt').textContent = s === 'live' ? (st.pair.lastMessage ? 'Phone linked' : 'Waiting for phone') : s === 'off' ? 'Not paired' : 'Reconnecting…';
+  }
+
+  function hours(slots) { return slots.map(function (s) { return S.hourOf(s.start); }); }
+
+  function renderHome(entering) {
+    const t = now();
+    const cur = st.cur;
+    const god = cur.preset === 'god';
+    const left = S.minutesLeft(cur, t), len = S.lengthMin(cur);
+    $('homeBig').textContent = S.hm(left);
+    $('homeSub').textContent = upper('of ' + S.hm(len) + ' left');
+    $('homeTitle').textContent = cur.index < 0 ? 'Open time' : cur.title;
+    $('homeNowLabel').textContent = upper('Now · ' + presetName(cur.preset));
+    $('homeBlock').textContent = cur.index < 0 ? 'Open time' : cur.title;
+    $('homeUntil').textContent = upper('until ' + S.clock(cur.end));
+    homeDial.setGold(god);
+    homeDial.setStars(hours(st.slots), S.hourOf(t));
+    const key = cur.title + cur.start;
+    homeDial.set(left / len, entering || key !== shownKey);
+    shownKey = key;
+
+    const next = $('homeNext');
+    next.textContent = '';
+    st.upcoming.forEach(function (n) {
+      const b = st.sched.blocks[n.index] || { len: S.lengthMin(n) };
+      next.appendChild(el('div', { class: 'nextcard stone' + (n.preset === 'god' ? ' god' : '') }, [
+        el('span', { class: 't', text: S.clock(n.start) }), el('span', { class: 'n', text: n.title }), el('span', { class: 'l', text: S.hm(b.len) })
+      ]));
+    });
+    if (!st.upcoming.length) {
+      next.appendChild(el('div', { class: 'nextcard stone' }, [el('span', { class: 't', text: S.clock(S.usualWakeAfter(st.sched, t)) }), el('span', { class: 'n', text: 'Your usual wake time' }), el('span', { class: 'l', text: '' })]));
+    }
+
+    const pb = $('pausedBanner');
+    pb.classList.toggle('hidden', !st.paused);
+    if (st.paused) {
+      pb.textContent = '';
+      pb.appendChild(el('span', { class: 'grow', text: 'Blocking is paused until ' + S.clock(st.paused) + '.' }));
+      pb.appendChild(el('button', { class: 'plain', text: 'Resume', onclick: function () { call('pause:end'); } }));
+    }
+    const ub = $('updBanner');
+    ub.classList.toggle('hidden', !st.version.pending);
+    if (st.version.pending) {
+      ub.textContent = '';
+      ub.appendChild(el('span', { class: 'grow', text: 'Focus ' + st.version.pending + ' is ready.' }));
+      ub.appendChild(el('button', { class: 'plain', text: 'Restart', onclick: function () { call('update:restart'); } }));
+    }
+
+    const acts = $('homeActions');
+    acts.textContent = '';
+    const asleep = (cur.index < 0 || cur.title.toLowerCase().indexOf('sleep') >= 0) && st.minutesToUsualWake <= 180;
+    const morning = !st.startedByTap && t - st.anchor < 3 * S.HOUR;
+    if (god) acts.appendChild(el('button', { class: 'goldbtn', text: 'Open Time with God', onclick: function () { go('god'); } }));
+    if (t < undoUntil) {
+      acts.appendChild(el('button', { class: god ? 'btn' : 'goldbtn', text: 'Day started at ' + S.clock(st.sched.wakeAt) + ' · Undo', onclick: function () {
+        undoUntil = 0;
+        call('wake:undo').then(apply);
+      } }));
+    } else if (!god) {
+      acts.appendChild(el('button', { class: (asleep || morning) ? 'goldbtn' : 'btn', text: asleep ? 'I\'m awake. Start my day' : 'I just woke up. Start from now', onclick: wakeUp }));
+    }
+  }
+
+  function wakeUp() {
+    call('wake:now').then(function (s) {
+      undoUntil = now() + 10000;
+      apply(s, true);
+      setTimeout(function () { render(false); }, 10200);
+    });
+  }
+
+  function apply(s, entering) { if (s && s.sched) { st = s; render(!!entering); } }
+
+  // ---------- Today ----------
+
+  function parseLen(v) {
+    v = String(v || '').trim().toLowerCase();
+    let m = null;
+    let r;
+    if ((r = /^(\d+):(\d{1,2})$/.exec(v))) m = (+r[1]) * 60 + (+r[2]);
+    else if ((r = /^(\d+(?:\.\d+)?)\s*h(?:ours?|rs?)?$/.exec(v))) m = Math.round(parseFloat(r[1]) * 60);
+    else if ((r = /^(\d+)\s*(?:m|min|mins|minutes)?$/.exec(v))) m = +r[1];
+    if (m == null || !isFinite(m)) return null;
+    return Math.max(5, Math.min(24 * 60, m));
+  }
+
+  function saveBlocks(blocks) {
+    call('sched:set', { blocks: blocks }).then(function (s) { if (s && s.sched) { st = s; renderToday(true); } });
+  }
+
+  function renderToday(force) {
+    if (!force && $('blockList').contains(document.activeElement) && document.activeElement.tagName !== 'BUTTON') { todayDirty = true; return; }
+    todayDirty = false;
+    const t = now();
+    const cur = st.cur;
+    const blocks = st.sched.blocks;
+    const w = st.sched.defaultWake;
+    if (document.activeElement !== $('wakeInput')) $('wakeInput').value = String(Math.floor(w / 60)).padStart(2, '0') + ':' + String(w % 60).padStart(2, '0');
+    const usual = new Date(); usual.setHours(Math.floor(w / 60), w % 60, 0, 0);
+    const end = st.slots.length ? st.slots[st.slots.length - 1].end : st.anchor;
+    $('todaySub').textContent = (st.startedByTap ? 'Started at ' + S.clock(st.anchor) + ' when you said you were up.' : 'Starts at your usual wake time, ' + S.clock(st.anchor) + '.') +
+      ' Ends ' + S.clock(end) + (cur.index < 0 ? '. It\'s open time now.' : '.');
+    $('todayUndo').disabled = !st.sched.prevWakeAt && !st.sched.wakeAt;
+    const list = $('blockList');
+    list.textContent = '';
+    blocks.forEach(function (b, i) {
+      const sl = st.slots[i];
+      const isNow = cur.index === i;
+      const sel = el('select', { class: 'field', 'aria-label': 'Preset' }, PRESETS.map(function (p) { return el('option', { value: p, text: presetName(p) }); }));
+      sel.value = b.preset;
+      sel.addEventListener('change', function () { const nb = clone(blocks); nb[i].preset = sel.value; saveBlocks(nb); });
+      const title = el('input', { class: 'field title', value: b.title, 'aria-label': 'Block name', maxlength: 60, spellcheck: 'false' });
+      title.addEventListener('change', function () { const nb = clone(blocks); nb[i].title = title.value.trim() || 'Block'; saveBlocks(nb); });
+      title.addEventListener('keydown', function (e) { if (e.key === 'Enter') title.blur(); });
+      const len = el('input', { class: 'field len', value: S.hm(b.len), 'aria-label': 'Length (h:mm)', title: 'Length: 1:30, 45, or 2h' });
+      len.addEventListener('change', function () {
+        const m = parseLen(len.value);
+        if (m == null) { len.value = S.hm(b.len); toast('Type a length like 1:30, 45 or 2h.'); return; }
+        const nb = clone(blocks); nb[i].len = m; saveBlocks(nb);
+      });
+      len.addEventListener('keydown', function (e) { if (e.key === 'Enter') len.blur(); });
+      const up = el('button', { class: 'ibtn plain', 'aria-label': 'Move up', title: 'Move up', disabled: i === 0, onclick: function () { const nb = clone(blocks); const x = nb.splice(i, 1)[0]; nb.splice(i - 1, 0, x); saveBlocks(nb); } }, [arrow('M6 15l6-6 6 6')]);
+      const down = el('button', { class: 'ibtn plain', 'aria-label': 'Move down', title: 'Move down', disabled: i === blocks.length - 1, onclick: function () { const nb = clone(blocks); const x = nb.splice(i, 1)[0]; nb.splice(i + 1, 0, x); saveBlocks(nb); } }, [arrow('M6 9l6 6 6-6')]);
+      const del = el('button', { class: 'ibtn plain del', 'aria-label': 'Delete block', title: 'Delete', disabled: blocks.length <= 1, onclick: function () {
+        if (!del.dataset.sure) { del.dataset.sure = '1'; del.title = 'Click again to delete'; del.style.color = '#F1B5A8'; setTimeout(function () { delete del.dataset.sure; del.style.color = ''; }, 2500); return; }
+        const nb = clone(blocks); nb.splice(i, 1); saveBlocks(nb);
+      } }, [arrow('M6 6l12 12M18 6L6 18')]);
+      list.appendChild(el('div', { class: 'brow stone' + (isNow ? ' now' : '') + (b.preset === 'god' ? ' god' : '') }, [
+        el('span', { class: 'times', text: span(sl.start, sl.end) }),
+        title, sel, len, el('div', { class: 'tools' }, [up, down, del])
+      ]));
+    });
+    $('dayLen').textContent = 'DAY LENGTH ' + S.hm(S.totalMin(st.sched));
+    void t;
+  }
+
+  function span(a, b) {
+    const x = S.clock(a), y = S.clock(b);
+    return (x.slice(-2) === y.slice(-2) ? x.slice(0, -3) : x) + ' – ' + y;
+  }
+
+  /** Scrolls only inside a list, never the window around it. */
+  function scrollWithin(box, item, center) {
+    if (!box || !item) return;
+    const top = item.offsetTop, h = item.offsetHeight;
+    if (center) box.scrollTop = Math.max(0, top - box.clientHeight / 2 + h / 2);
+    else if (top < box.scrollTop) box.scrollTop = top - 8;
+    else if (top + h > box.scrollTop + box.clientHeight) box.scrollTop = top + h - box.clientHeight + 8;
+  }
+
+  function arrow(d) {
+    const s = U.svg('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+    U.svg('path', { d: d }, s);
+    return s;
+  }
+
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+  $('blockList').addEventListener('focusout', function () { setTimeout(function () { if (todayDirty && !$('blockList').contains(document.activeElement)) renderToday(); }, 0); });
+  $('addBlock').addEventListener('click', function () {
+    const nb = clone(st.sched.blocks);
+    nb.push({ title: 'New block', preset: 'normal', len: 60 });
+    saveBlocks(nb);
+    setTimeout(function () { const rows = $('blockList').querySelectorAll('input.title'); const last = rows[rows.length - 1]; if (last) { last.focus({ preventScroll: true }); last.select(); scrollWithin($('blockList'), last.closest('.brow'), false); } }, 120);
+  });
+  $('wakeInput').addEventListener('change', function () {
+    const v = /^(\d{1,2}):(\d{2})/.exec($('wakeInput').value);
+    if (!v) return;
+    call('sched:set', { defaultWake: (+v[1]) * 60 + (+v[2]) }).then(function (s) { if (s && s.sched) { st = s; renderToday(true); toast('Usual wake time saved.'); } });
+  });
+  $('todayWake').addEventListener('click', function () {
+    call('wake:now').then(function (s) { if (s && s.sched) { st = s; renderToday(true); toast('Day started at ' + S.clock(st.sched.wakeAt) + '.'); } });
+  });
+  $('todayUndo').addEventListener('click', function () {
+    call('wake:undo').then(function (s) { if (s && s.sched) { st = s; renderToday(true); toast('Wake-up undone.'); } });
+  });
+
+  // ---------- Presets ----------
+
+  function savePc(pc) { call('pc:set', pc).then(function (s) { if (s && s.pc) { st = s; renderPresets(); } }); }
+
+  function seg(options, value, onPick) {
+    const s = el('div', { class: 'seg', role: 'radiogroup' });
+    options.forEach(function (o) {
+      s.appendChild(el('button', { class: (o.v === value ? 'on ' : '') + o.c, role: 'radio', 'aria-checked': o.v === value ? 'true' : 'false', text: o.t, onclick: function () { if (o.v !== value) onPick(o.v); } }));
+    });
+    return s;
+  }
+
+  function exeKey(s) {
+    s = String(s || '').trim().toLowerCase();
+    s = s.slice(Math.max(s.lastIndexOf('\\'), s.lastIndexOf('/')) + 1);
+    return s.endsWith('.exe') ? s.slice(0, -4) : s;
+  }
+  function hostKey(s) {
+    s = String(s || '').trim().toLowerCase().replace(/^[a-z][a-z0-9+.-]*:\/\//, '').split(/[\/?#]/)[0].replace(/:\d+$/, '');
+    if (s.startsWith('www.')) s = s.slice(4);
+    if (s.startsWith('*.')) s = s.slice(2);
+    return /^[a-z0-9.-]+$/.test(s) && s.indexOf('.') > 0 ? s : '';
+  }
+
+  function renderPresets() {
+    const pc = st.pc;
+    if (!presetSel) presetSel = st.cur.preset;
+    const tabs = $('presetTabs');
+    tabs.textContent = '';
+    PRESETS.forEach(function (id) {
+      const b = el('button', { class: 'chip' + (id === 'god' ? ' godtab' : '') + (id === presetSel ? ' on' : ''), text: presetName(id), onclick: function () { presetSel = id; renderPresets(); } });
+      if (id === st.cur.preset) { b.appendChild(el('span', { class: 'cur', title: 'Now' })); }
+      tabs.appendChild(b);
+    });
+    const p = pc.presets[presetSel];
+    const name = presetName(presetSel);
+    const dseg = seg([{ v: ALLOW, t: 'Allowed', c: 'allow' }, { v: BLOCK, t: 'Blocked', c: 'block' }], p.def, function (v) { const n = clone(pc); n.presets[presetSel].def = v; savePc(n); });
+    $('defSeg').replaceWith(dseg); dseg.id = 'defSeg';
+    $('defNote').textContent = p.def === BLOCK
+      ? 'During ' + name + ', any program not listed below is minimized with "Not now". Windows itself, Focus and your basic tools always open.'
+      : 'During ' + name + ', programs open unless they are listed below as blocked or needing a reason.';
+
+    const list = $('progList');
+    list.textContent = '';
+    const keys = Object.keys(p.modes).sort();
+    if (!keys.length) list.appendChild(el('div', { class: 'empty', text: 'No programs set for ' + name + ' yet. Add one, or click one you have running.' }));
+    keys.forEach(function (k) {
+      const ent = pc.entExes.indexOf(k) >= 0;
+      const row = el('div', { class: 'prow' }, [el('span', { class: 'name', text: k, title: k + '.exe' })]);
+      if (ent) row.appendChild(el('span', { class: 'why', text: 'Entertainment · Free time only' }));
+      else row.appendChild(seg([{ v: ALLOW, t: 'Allowed', c: 'allow' }, { v: REASON, t: 'Needs a reason', c: 'reason' }, { v: BLOCK, t: 'Blocked', c: 'block' }], p.modes[k], function (v) { const n = clone(pc); n.presets[presetSel].modes[k] = v; savePc(n); }));
+      row.appendChild(el('button', { class: 'ibtn plain del', 'aria-label': 'Remove ' + k, title: 'Remove', onclick: function () { const n = clone(pc); delete n.presets[presetSel].modes[k]; savePc(n); } }, [arrow('M6 6l12 12M18 6L6 18')]));
+      list.appendChild(row);
+    });
+
+    const dl = $('seenList');
+    dl.textContent = '';
+    st.seen.forEach(function (s) { dl.appendChild(el('option', { value: s.exe, label: s.title })); });
+    const chips = $('seenChips');
+    chips.textContent = '';
+    const fresh = st.seen.filter(function (s) { return !(s.exe in p.modes); });
+    if (!fresh.length) chips.appendChild(el('span', { class: 'empty', text: st.platform === 'win32' ? 'Programs you use show up here.' : 'Programs show up here on Windows.' }));
+    fresh.slice(0, 40).forEach(function (s) {
+      chips.appendChild(el('button', { class: 'chip', text: s.exe, title: s.title || s.exe, onclick: function () { const n = clone(pc); n.presets[presetSel].modes[s.exe] = p.def === BLOCK ? ALLOW : BLOCK; savePc(n); } }));
+    });
+
+    $('sitesTitle').textContent = 'Blocked websites in ' + name;
+    const sl = $('siteList');
+    sl.textContent = '';
+    if (!p.sites.length) sl.appendChild(el('div', { class: 'empty', text: 'None. Entertainment sites are already covered below.' }));
+    p.sites.forEach(function (h) {
+      sl.appendChild(el('div', { class: 'prow' }, [el('span', { class: 'name', text: h }),
+        el('button', { class: 'ibtn plain del', 'aria-label': 'Remove ' + h, title: 'Remove', onclick: function () { const n = clone(pc); n.presets[presetSel].sites = n.presets[presetSel].sites.filter(function (x) { return x !== h; }); savePc(n); } }, [arrow('M6 6l12 12M18 6L6 18')])]));
+    });
+
+    tagList($('entExes'), pc.entExes, function (x) { const n = clone(pc); n.entExes = n.entExes.filter(function (y) { return y !== x; }); savePc(n); });
+    tagList($('entSites'), pc.entSites, function (x) { const n = clone(pc); n.entSites = n.entSites.filter(function (y) { return y !== x; }); savePc(n); });
+    if (document.activeElement !== $('ytLimit')) $('ytLimit').value = pc.ytLimit;
+    $('ytUsed').textContent = 'Used today: ' + st.ytUsedMin + ' of ' + pc.ytLimit + ' minutes. Counted while a YouTube tab is in front, outside Free time. Needs the Focus extension in Chrome or Opera.';
+  }
+
+  function tagList(host, items, onRemove) {
+    host.textContent = '';
+    items.forEach(function (x) {
+      host.appendChild(el('span', { class: 'tag' }, [x, el('button', { class: 'plain', 'aria-label': 'Remove ' + x, title: 'Remove', onclick: function () { onRemove(x); } }, ['×'])]));
+    });
+  }
+
+  function addFrom(input, keyFn, add) {
+    const k = keyFn(input.value);
+    if (!k) { toast('That doesn\'t look right.'); return; }
+    input.value = '';
+    add(k);
+  }
+  $('progAdd').addEventListener('click', function () {
+    addFrom($('progInput'), exeKey, function (k) { const n = clone(st.pc); const p = n.presets[presetSel]; if (!(k in p.modes)) p.modes[k] = p.def === BLOCK ? ALLOW : BLOCK; savePc(n); });
+  });
+  $('siteAdd').addEventListener('click', function () {
+    addFrom($('siteInput'), hostKey, function (k) { const n = clone(st.pc); const p = n.presets[presetSel]; if (p.sites.indexOf(k) < 0) p.sites.push(k); savePc(n); });
+  });
+  $('entExeAdd').addEventListener('click', function () {
+    addFrom($('entExeInput'), exeKey, function (k) { const n = clone(st.pc); if (n.entExes.indexOf(k) < 0) n.entExes.push(k); savePc(n); });
+  });
+  $('entSiteAdd').addEventListener('click', function () {
+    addFrom($('entSiteInput'), hostKey, function (k) { const n = clone(st.pc); if (n.entSites.indexOf(k) < 0) n.entSites.push(k); savePc(n); });
+  });
+  [['progInput', 'progAdd'], ['siteInput', 'siteAdd'], ['entExeInput', 'entExeAdd'], ['entSiteInput', 'entSiteAdd']].forEach(function (p) {
+    $(p[0]).addEventListener('keydown', function (e) { if (e.key === 'Enter') $(p[1]).click(); });
+  });
+  $('ytLimit').addEventListener('change', function () {
+    const v = Math.max(0, Math.min(600, parseInt($('ytLimit').value, 10) || 0));
+    const n = clone(st.pc); n.ytLimit = v; savePc(n);
+  });
+  $('seenRefresh').addEventListener('click', function () { api.invoke('procs:refresh'); toast('Looking at what\'s running…'); setTimeout(function () { api.invoke('state:get').then(function (s) { st = s; renderPresets(); }); }, 2500); });
+
+  // ---------- Time with God ----------
+
+  function renderGod(entering) {
+    const t = now();
+    const cur = st.cur;
+    const inBlock = cur.preset === 'god';
+    $('godHead').textContent = upper((inBlock ? 'First hour awake · ' : 'Time with God · ') + S.clock(t));
+    if (inBlock) {
+      const left = S.minutesLeft(cur, t), len = S.lengthMin(cur);
+      $('godBig').textContent = S.hm(left);
+      $('godSub').textContent = upper('of ' + S.hm(len) + ' left');
+      godDial.set(left / len, entering);
+    } else {
+      $('godBig').textContent = 'Now';
+      $('godSub').textContent = 'ANY TIME IS GOOD';
+      godDial.set(1, entering);
+    }
+    godDial.setStars(hours(st.slots), S.hourOf(t));
+    showVerse();
+    const steps = $('steps');
+    if (!steps.childElementCount || entering) {
+      steps.textContent = '';
+      ['Read your Bible', 'Pray: thanks, confession, requests', 'Write one thing to carry into today'].forEach(function (txt, i) {
+        const cb = el('input', { type: 'checkbox' });
+        cb.checked = !!st.steps[i];
+        const lab = el('label', { class: 'step' + (cb.checked ? ' done' : '') }, [cb, txt]);
+        cb.addEventListener('change', function () {
+          lab.classList.toggle('done', cb.checked);
+          api.invoke('steps:set', { i: i, on: cb.checked }).then(function (arr) { if (Array.isArray(arr)) st.steps = arr; });
+        });
+        steps.appendChild(lab);
+      });
+    }
+  }
+
+  function showVerse() {
+    const r = bible ? B.verseOfDay(bible, now()) : B.FALLBACK;
+    $('verseText').textContent = '“' + r.text + '”';
+    $('verseRef').textContent = upper('Today\'s verse · ' + B.label(bible || { books: [] }, r) + ' · KJV');
+    if (!bible) ensureBible().then(function () { if (view === 'god') showVerse(); });
+  }
+
+  $('godBack').addEventListener('click', function () { flow = ''; go('home'); });
+  $('putDown').addEventListener('click', function () { go('rest', { fromGod: true }); });
+
+  function renderRest() {
+    const cur = st.cur;
+    $('restTime').textContent = cur.preset === 'god' ? S.hm(S.minutesLeft(cur, now())) : '';
+  }
+  $('restWake').addEventListener('click', function () { go('god'); });
+
+  // ---------- Bible ----------
+
+  function ensureBible() {
+    if (bible) return Promise.resolve(bible);
+    if (!bibleLoading) {
+      bibleLoading = api.invoke('bible:text').then(function (raw) {
+        if (typeof raw !== 'string') throw new Error('no text');
+        bible = B.parse(raw);
+        try { const saved = JSON.parse(localStorage.getItem('bible.at') || 'null'); if (saved) { bookSel = saved.b; chapSel = saved.c; } } catch (e) { }
+        return bible;
+      }).catch(function (e) { bibleLoading = null; toast('The Bible couldn\'t be loaded.'); throw e; });
+    }
+    return bibleLoading;
+  }
+
+  function renderBible() {
+    if (!bible) return;
+    const bl = $('bookList');
+    if (!bl.childElementCount) {
+      bible.books.forEach(function (name, i) {
+        if (i === 0) bl.appendChild(el('span', { class: 'label testament', text: 'OLD TESTAMENT' }));
+        if (i === 39) bl.appendChild(el('span', { class: 'label testament', text: 'NEW TESTAMENT' }));
+        bl.appendChild(el('button', { class: 'plain', 'data-b': i, text: name, onclick: function () { openChapter(i, 1); } }));
+      });
+    }
+    if (!$('bibleSearch').value.trim()) openChapter(bookSel, chapSel, null, true);
+  }
+
+  function openChapter(b, c, hlVerse, keepScroll, word) {
+    if (!bible) return;
+    b = Math.max(0, Math.min(bible.books.length - 1, b | 0));
+    c = Math.max(1, Math.min(bible.text[b].length, c | 0));
+    const same = b === bookSel && c === chapSel && $('reading').dataset.mode === 'chapter';
+    bookSel = b; chapSel = c;
+    try { localStorage.setItem('bible.at', JSON.stringify({ b: b, c: c })); } catch (e) { }
+    if (hlVerse != null) $('bibleSearch').value = '';
+    $('chapTitle').textContent = bible.books[b] + ' ' + c;
+    $('bookList').querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', +x.dataset.b === b); });
+    const onBook = $('bookList').querySelector('button.on');
+    if (onBook && !keepScroll) scrollWithin($('bookList'), onBook, false);
+    const cl = $('chapList');
+    cl.textContent = '';
+    cl.classList.remove('hidden');
+    for (let i = 1; i <= bible.text[b].length; i++) {
+      (function (n) { cl.appendChild(el('button', { class: 'plain' + (n === c ? ' on' : ''), text: String(n), onclick: function () { openChapter(b, n); } })); })(i);
+    }
+    const rd = $('reading');
+    if (same && keepScroll && hlVerse == null) return;
+    rd.dataset.mode = 'chapter';
+    rd.textContent = '';
+    rd.classList.remove('results');
+    bible.text[b][c - 1].forEach(function (v, i) {
+      const p = el('p', { id: 'v' + (i + 1), class: hlVerse === i + 1 ? 'hl' : '' }, [el('sup', { text: String(i + 1) })]);
+      if (word && hlVerse === i + 1) markWord(p, v, word); else p.appendChild(document.createTextNode(v));
+      rd.appendChild(p);
+    });
+    scrollWithin(cl, cl.querySelector('.on'), false);
+    if (hlVerse) scrollWithin(rd, $('v' + hlVerse), true); else rd.scrollTop = 0;
+  }
+
+  function markWord(p, text, word) {
+    const l = text.toLowerCase(), w = word.toLowerCase();
+    let i = 0, at;
+    while ((at = l.indexOf(w, i)) >= 0) {
+      p.appendChild(document.createTextNode(text.slice(i, at)));
+      p.appendChild(el('mark', { text: text.slice(at, at + w.length) }));
+      i = at + w.length;
+    }
+    p.appendChild(document.createTextNode(text.slice(i)));
+  }
+
+  function runSearch() {
+    const q = $('bibleSearch').value.trim();
+    if (!bible) return;
+    if (q.length < 2) { openChapter(bookSel, chapSel); return; }
+    const all = B.search(bible, q, 100000);
+    const rd = $('reading');
+    rd.dataset.mode = 'search';
+    rd.textContent = '';
+    rd.classList.add('results');
+    rd.scrollTop = 0;
+    $('chapTitle').textContent = '“' + q + '”';
+    $('chapList').classList.add('hidden');
+    rd.appendChild(el('div', { class: 'rcount', text: all.length === 0 ? 'No verses found.' : all.length + (all.length === 1 ? ' verse' : ' verses') + (all.length > 300 ? ' · showing the first 300' : '') }));
+    all.slice(0, 300).forEach(function (r) {
+      const b = el('button', { class: 'res plain', onclick: function () { openChapter(r.book, r.chapter, r.verse, false, q); } }, [el('span', { class: 'ref', text: upper(B.label(bible, r)) })]);
+      markWord(b, r.text, q);
+      rd.appendChild(b);
+    });
+  }
+  let searchTimer = 0;
+  $('bibleSearch').addEventListener('input', function () { clearTimeout(searchTimer); searchTimer = setTimeout(runSearch, 280); });
+  $('bibleSearch').addEventListener('keydown', function (e) { if (e.key === 'Enter') { clearTimeout(searchTimer); runSearch(); } if (e.key === 'Escape') { $('bibleSearch').value = ''; runSearch(); } });
+  $('biblePhone').addEventListener('click', function () {
+    call('bible:phone', { book: bookSel, chapter: chapSel }).then(function (r) { if (r && r.ok) toast('Opening ' + bible.books[bookSel] + ' ' + chapSel + ' on your phone.'); });
+  });
+  $('bibleBack').addEventListener('click', function () { go('god'); });
+
+  // ---------- Prayer journal ----------
+
+  function lockJournal() {
+    journal = null;
+    $('jText').value = '';
+    $('jList').textContent = '';
+    $('v-journal').dataset.j = 'locked';
+  }
+
+  function renderJournal() {
+    const v = $('v-journal');
+    v.dataset.j = journal ? 'open' : 'locked';
+    if (!journal) return;
+    const r = bible ? B.verseOfDay(bible, now()) : B.FALLBACK;
+    $('jDay').textContent = upper('Today · ' + B.label(bible || { books: [] }, r));
+    const kinds = $('jKinds');
+    kinds.textContent = '';
+    ['Request', 'Thanks', 'Confession'].forEach(function (k) {
+      kinds.appendChild(el('button', { class: 'kind' + (k === jKind ? ' on' : ''), text: k, onclick: function () { jKind = k; renderJournal(); } }));
+    });
+    const list = $('jList');
+    list.textContent = '';
+    if (!journal.length) list.appendChild(el('li', { class: 'empty', style: 'display:block', text: 'Your prayers will show up here. Mark them answered when God answers.' }));
+    journal.forEach(function (e, idx) {
+      const d = new Date(e.t);
+      const md = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      let meta = upper(e.kind + ' · ' + md);
+      if (e.answered) meta += ' · ANSWERED ' + upper(new Date(e.answered).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+      const mark = el('button', { class: 'mark plain', title: e.answered ? 'Mark as not answered yet' : 'Mark answered', 'aria-label': e.answered ? 'Mark as not answered yet' : 'Mark answered', onclick: function () {
+        e.answered = e.answered ? 0 : now();
+        saveJournal();
+      } }, [el('span')]);
+      const del = el('button', { class: 'ibtn plain del', title: 'Delete', 'aria-label': 'Delete entry', onclick: function () {
+        if (!del.dataset.sure) { del.dataset.sure = '1'; del.title = 'Click again to delete'; del.style.color = '#F1B5A8'; del.style.opacity = 1; setTimeout(function () { delete del.dataset.sure; del.style.color = ''; del.style.opacity = ''; }, 2500); return; }
+        journal.splice(idx, 1);
+        saveJournal();
+      } }, [arrow('M6 6l12 12M18 6L6 18')]);
+      list.appendChild(el('li', { class: (e.answered ? 'answered ' : '') + (e.kind === 'Thanks' ? 'thanks' : '') }, [mark, el('div', {}, [el('span', { class: 'txt', text: e.text }), el('span', { class: 'meta', text: meta })]), del]));
+    });
+  }
+
+  function saveJournal() {
+    call('journal:save', journal).then(function (r) { if (r && r.ok) renderJournal(); });
+  }
+
+  $('jUnlock').addEventListener('click', function () {
+    call('journal:unlock').then(function (r) {
+      if (!r || r.error) { if (r && r.error) $('jlockText').textContent = r.error; return; }
+      journal = r.entries.slice().sort(function (a, b) { return b.t - a.t; });
+      ensureBible().catch(function () { }).then(function () { renderJournal(); });
+      renderJournal();
+      const v = $('v-journal'); v.classList.remove('active'); void v.offsetWidth; v.classList.add('active');
+      setTimeout(function () { $('jText').focus(); }, 500);
+    });
+  });
+  $('jLock').addEventListener('click', function () { lockJournal(); const v = $('v-journal'); v.classList.remove('active'); void v.offsetWidth; v.classList.add('active'); });
+  $('jSave').addEventListener('click', function () {
+    const t = $('jText').value.trim();
+    if (!t || !journal) return;
+    journal.unshift({ t: now(), kind: jKind, text: t, answered: 0 });
+    $('jText').value = '';
+    saveJournal();
+  });
+  $('jText').addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.ctrlKey) $('jSave').click(); });
+  $('journalBack').addEventListener('click', function () { go('god'); });
+
+  // ---------- Settings ----------
+
+  function ago(t) {
+    if (!t) return '';
+    const s = Math.round((now() - t) / 1000);
+    if (s < 60) return 'just now';
+    if (s < 3600) return Math.round(s / 60) + ' min ago';
+    if (s < 86400) return Math.round(s / 3600) + ' h ago';
+    return new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  function renderSettings() {
+    $('pairCode').textContent = st.pair.code || '—';
+    const ps = $('pairStatus');
+    const s = st.pair.status;
+    ps.className = 'linkline ' + s;
+    ps.textContent = '';
+    ps.appendChild(el('span', { class: 'dot' }));
+    ps.appendChild(document.createTextNode(
+      s === 'live' ? (st.pair.lastMessage ? 'Connected · last message from your phone ' + ago(st.pair.lastMessage) : 'Connected · waiting for your phone') :
+        s === 'connecting' ? 'Connecting to the relay…' : s === 'waiting' ? 'Offline · trying again' : 'Not connected'));
+    $('tStart').classList.toggle('on', !!st.settings.startWithWindows);
+    $('tStart').setAttribute('aria-checked', st.settings.startWithWindows ? 'true' : 'false');
+    $('tWidget').classList.toggle('on', !!st.settings.showWidget);
+    $('tWidget').setAttribute('aria-checked', st.settings.showWidget ? 'true' : 'false');
+    $('verName').textContent = st.version.name + (st.version.fellBack ? ' (an update failed to start, so this is the installed copy)' : '');
+    const r = st.reasons[0];
+    $('reasonCount').textContent = r ? 'Last reason: “' + r.why + '” (' + r.exe + ', ' + ago(r.t) + ')' : '';
+    if (st.version.pending && !$('updMsg').dataset.busy) {
+      $('updMsg').textContent = 'Focus ' + st.version.pending + ' is downloaded. ';
+      $('updMsg').appendChild(el('button', { class: 'plain linkbtn', text: 'Restart now', onclick: function () { call('update:restart'); } }));
+    }
+  }
+
+  $('pairNew').addEventListener('click', function () {
+    const b = $('pairNew');
+    if (!b.dataset.sure && st.pair.code) {
+      b.dataset.sure = '1'; b.textContent = 'Your phone will need the new code. Sure?';
+      setTimeout(function () { delete b.dataset.sure; b.textContent = 'New code'; }, 4000);
+      return;
+    }
+    delete b.dataset.sure; b.textContent = 'New code';
+    call('pair:new').then(function (s) { if (s && s.pair) { st = s; renderSettings(); toast('New code made. Type it on your phone.'); } });
+  });
+  $('tStart').addEventListener('click', function () { call('settings:set', { startWithWindows: !st.settings.startWithWindows }).then(function (s) { apply(s); }); });
+  $('tWidget').addEventListener('click', function () { call('settings:set', { showWidget: !st.settings.showWidget }).then(function (s) { apply(s); }); });
+  $('updCheck').addEventListener('click', function () {
+    const m = $('updMsg');
+    m.dataset.busy = '1';
+    m.textContent = 'Checking…';
+    api.invoke('update:check').then(function (r) {
+      delete m.dataset.busy;
+      m.textContent = '';
+      if (!r) return;
+      if (r.status === 'current') m.textContent = 'You have the newest version.';
+      else if (r.status === 'error') m.textContent = 'Couldn\'t check: ' + r.message;
+      else if (r.status === 'ready') {
+        m.textContent = 'Focus ' + r.name + ' is downloaded. Restarting… ' + (r.notes || '');
+      }
+    });
+  });
+  $('openLog').addEventListener('click', function () { api.invoke('log:open'); });
+  $('sendclip').addEventListener('click', function () { api.invoke('clip:send'); });
+
+  // ---------- Pause ----------
+
+  function openPause() {
+    const m = $('pauseModal');
+    m.classList.add('open');
+    m.setAttribute('aria-hidden', 'false');
+    $('pauseReason').value = '';
+    $('pauseGo').disabled = true;
+    setTimeout(function () { $('pauseReason').focus(); }, 300);
+  }
+  function closePause() { const m = $('pauseModal'); m.classList.remove('open'); m.setAttribute('aria-hidden', 'true'); }
+  $('pauseReason').addEventListener('input', function () { $('pauseGo').disabled = U.wordCount($('pauseReason').value) < 4; });
+  $('pauseGo').addEventListener('click', function () {
+    call('pause:start', { reason: $('pauseReason').value }).then(function (r) { if (r && r.ok) { closePause(); toast('Blocking is paused until ' + S.clock(r.until) + '.'); } });
+  });
+  $('pauseCancel').addEventListener('click', closePause);
+  $('pauseScrim').addEventListener('click', closePause);
+
+  // ---------- window ----------
+
+  $('wmin').addEventListener('click', function () { api.invoke('win:minimize'); });
+  $('wclose').addEventListener('click', function () { api.invoke('win:close'); });
+  $('homeCenter').addEventListener('click', function () { go(st && st.cur.preset === 'god' ? 'god' : 'today'); });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if ($('pauseModal').classList.contains('open')) { closePause(); return; }
+    if (view === 'rest') go('god');
+    else if ((view === 'bible' || view === 'journal') && flow === 'god') go('god');
+    else if (view === 'god') { flow = ''; go('home'); }
+  });
+
+  api.on('state', function (s) {
+    const prevKey = st ? st.cur.title + st.cur.start : '';
+    st = s;
+    const key = st.cur.title + st.cur.start;
+    if (view === 'today' || view === 'presets' || view === 'settings' || view === 'home' || key !== prevKey) render(key !== prevKey);
+    else { renderClock(); renderLink(); }
+  });
+  api.on('nav', function (n) { if (n && n.view) go(n.view, n); });
+  api.on('fullscreen', function () { });
+
+  // Every second: the clock and countdowns; a fresh snapshot when the block ends.
+  let lastMinute = -1;
+  setInterval(function () {
+    if (!st) return;
+    const t = now();
+    const minute = Math.floor(t / 60000);
+    if (t >= st.cur.end) { api.invoke('state:get').then(function (s) { st = s; render(true); }); return; }
+    if (minute !== lastMinute) {
+      lastMinute = minute;
+      renderClock();
+      if (view === 'home') renderHome(false);
+      else if (view === 'god') renderGod(false);
+      else if (view === 'rest') renderRest();
+    }
+    if (undoUntil && t >= undoUntil && view === 'home') { undoUntil = 0; renderHome(false); }
+  }, 1000);
+
+  api.invoke('state:get').then(function (s) {
+    st = s;
+    presetSel = s.cur.preset;
+    go(location.hash ? location.hash.slice(1) : 'home');
+  });
+})();

@@ -1,0 +1,20 @@
+{
+  "name": "focus-pc",
+  "productName": "Focus",
+  "version": "1.0.0",
+  "description": "Focus for Windows: the desktop companion to Focus on the phone.",
+  "main": "bootstrap.js",
+  "private": true,
+  "author": "Caleb",
+  "scripts": {
+    "test": "node test/run-all.js",
+    "test:e2e": "xvfb-run -a node test/e2e.js",
+    "test:extension": "xvfb-run -a node test/extension.js",
+    "screens": "node test/screens.js",
+    "package": "bash build-win.sh"
+  },
+  "devDependencies": {
+    "electron": "45.2.1",
+    "@electron/packager": "20.3.0"
+  }
+}
