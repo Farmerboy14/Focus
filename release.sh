@@ -8,7 +8,7 @@ cp build/Focus.apk release/Focus.apk
 python3 - "$1" "$2" "$3" <<'PY'
 import json, sys
 json.dump({"code": int(sys.argv[1]), "name": sys.argv[2], "notes": sys.argv[3],
-           "apk": "https://api.github.com/repos/Farmerboy14/focus/contents/release/Focus.apk?ref=main"},
+           "apk": "https://raw.githubusercontent.com/Farmerboy14/focus/main/release/Focus.apk"},
           open("release/version.json", "w"), indent=2)
 PY
 cat release/version.json

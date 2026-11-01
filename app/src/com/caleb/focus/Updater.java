@@ -142,7 +142,13 @@ public final class Updater {
             public void run() {
                 String err = null;
                 try {
-                    byte[] apk = get(info.apk + (info.apk.contains("?") ? "&" : "?") + "t=" + System.currentTimeMillis());
+                    byte[] apk;
+                    try {
+                        apk = get("https://api.github.com/repos/Farmerboy14/focus/contents/release/Focus.apk?ref=main");
+                        if (apk.length < 100_000) throw new Exception("not an apk");
+                    } catch (Throwable apiFailed) {
+                        apk = get(info.apk + (info.apk.contains("?") ? "&" : "?") + "t=" + System.currentTimeMillis());
+                    }
                     PackageInstaller pi = c.getPackageManager().getPackageInstaller();
                     PackageInstaller.SessionParams p = new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
                     p.setAppPackageName(c.getPackageName());
