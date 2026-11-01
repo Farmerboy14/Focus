@@ -53,9 +53,33 @@ public class FocusService extends AccessibilityService {
         return false;
     }
 
+    // Put the Focus lock screen in place as the screen goes off, so it's there the moment it wakes.
+    private final android.content.BroadcastReceiver screen = new android.content.BroadcastReceiver() {
+        @Override public void onReceive(Context c, Intent i) {
+            if (!Intent.ACTION_SCREEN_OFF.equals(i.getAction())) return;
+            leaveYouTube();
+            if (!LockActivity.enabled(c)) return;
+            try {
+                android.media.AudioManager am = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
+                int mode = am != null ? am.getMode() : android.media.AudioManager.MODE_NORMAL;
+                if (mode != android.media.AudioManager.MODE_NORMAL) return; // on a call or ringing
+                Intent l = new Intent(c, LockActivity.class);
+                l.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION);
+                startActivity(l);
+            } catch (Throwable ignored) { }
+        }
+    };
+    private boolean screenRegistered;
+
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
+        try {
+            if (!screenRegistered) {
+                registerReceiver(screen, new android.content.IntentFilter(Intent.ACTION_SCREEN_OFF));
+                screenRegistered = true;
+            }
+        } catch (Throwable ignored) { }
         h.removeCallbacks(tick);
         h.post(tick);
     }
@@ -63,6 +87,7 @@ public class FocusService extends AccessibilityService {
     @Override
     public void onDestroy() {
         h.removeCallbacks(tick);
+        if (screenRegistered) { try { unregisterReceiver(screen); } catch (Throwable ignored) { } screenRegistered = false; }
         try {
             if (Store.get(this).prefs().getBoolean("dndByUs", false)) {
                 NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);

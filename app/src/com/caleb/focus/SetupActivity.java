@@ -110,6 +110,22 @@ public class SetupActivity extends Activity {
             });
             list.addView(clear);
         }
+        LinearLayout lr = Ui.row(this);
+        TextView lt = Ui.text(this, "Focus lock screen", 15, Ui.INK, Ui.SORA);
+        lr.addView(lt, new LinearLayout.LayoutParams(0, Ui.WRAP, 1f));
+        android.widget.Switch ls = new android.widget.Switch(this);
+        ls.setChecked(LockActivity.enabled(this));
+        ls.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
+            @Override public void onCheckedChanged(android.widget.CompoundButton b, boolean on) {
+                Store.get(SetupActivity.this).prefs().edit().putBoolean("lockScreen", on).apply();
+            }
+        });
+        lr.addView(ls);
+        list.addView(lr, Ui.lp(Ui.MATCH, Ui.dp(this, 52), Ui.dp(this, 8)));
+        TextView lnote = Ui.text(this, "Shows your block, what's next and today's verse when you wake the phone. Swipe up, then unlock as usual. Needs app blocking on.", 12, Ui.MUTED, Ui.SORA);
+        lnote.setLineSpacing(0, 1.3f);
+        list.addView(lnote, Ui.lp(Ui.MATCH, Ui.WRAP));
+
         TextView wall = Ui.chip(this, "Use the Focus night sky on home and lock screen", false);
         wall.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {

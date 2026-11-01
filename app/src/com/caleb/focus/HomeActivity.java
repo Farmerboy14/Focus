@@ -260,7 +260,7 @@ public class HomeActivity extends Activity {
             LinearLayout card = Ui.column(this);
             card.setBackground(new Ui.StoneDrawable(this, Ui.STONE, 0x1AAACFF6, 16));
             card.setPadding(Ui.dp(this, 12), Ui.dp(this, 10), Ui.dp(this, 12), Ui.dp(this, 10));
-            card.addView(Ui.text(this, Ui.clockShort(n.start), 11, Ui.MUTED, Ui.MONO));
+            card.addView(Ui.text(this, Ui.clock(n.start), 11, Ui.MUTED, Ui.MONO));
             TextView tt = Ui.text(this, n.title, 13, Ui.INK, Ui.SORA_MED);
             tt.setSingleLine(true);
             tt.setEllipsize(android.text.TextUtils.TruncateAt.END);

@@ -1,6 +1,6 @@
 {
-  "code": 5,
-  "name": "0.5",
-  "notes": "The lock screen gets the night sky too.",
+  "code": 6,
+  "name": "0.6",
+  "notes": "New Focus lock screen. Turn it off in Setup if you don't want it.",
   "apk": "https://raw.githubusercontent.com/Farmerboy14/focus/main/release/Focus.apk"
 }
