@@ -1,0 +1,3 @@
+Night lines icons are converted from Lawnicons (https://github.com/LawnchairLauncher/lawnicons),
+Copyright the Lawnicons contributors, licensed under the Apache License 2.0
+(https://www.apache.org/licenses/LICENSE-2.0). Converted to Focus's own path format by tools/make-icons.py.

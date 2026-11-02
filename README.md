@@ -6,7 +6,11 @@ Bible with word search, and a locked prayer journal.
 
 Install: download `release/Focus.apk` on the phone. After that, Focus updates itself from this repo.
 
-## Credits (Focus for Windows desktop)
+## Credits
+
+- Phone icons ("Night line icons"): [Lawnicons](https://github.com/LawnchairLauncher/lawnicons), Apache License 2.0, converted by `tools/make-icons.py` (see `app/assets/icons/NOTICE.txt`).
+
+### Focus for Windows desktop
 
 - Earth imagery: NASA Blue Marble and Black Marble, public domain.
 - Live clouds: [Live Cloud Maps](https://github.com/matteason/live-cloud-maps) by Matt Eason (CC0). Contains modified EUMETSAT data.

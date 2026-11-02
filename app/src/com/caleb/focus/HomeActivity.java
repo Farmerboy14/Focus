@@ -30,6 +30,7 @@ public class HomeActivity extends Activity {
     private LinearLayout upcomingRow, banner, updBanner;
     private TextView updText;
     private FlowLayout apps;
+    private LinearLayout dock;
     private TextView action;
     private String shownKey = "";
     private long undoUntil;
@@ -144,6 +145,10 @@ public class HomeActivity extends Activity {
 
         action = Ui.goldButton(this, "");
         col.addView(action, Ui.lp(Ui.MATCH, Ui.WRAP));
+
+        // favorite apps, always in the same place
+        dock = Ui.column(this);
+        col.addView(dock, Ui.lp(Ui.MATCH, Ui.WRAP, Ui.dp(this, 14)));
 
         LinearLayout nav = Ui.row(this);
         nav.setPadding(0, Ui.dp(this, 6), 0, Ui.dp(this, 4));
@@ -287,12 +292,13 @@ public class HomeActivity extends Activity {
             upcomingRow.addView(new View(this), clp);
         }
 
-        // apps for this block
+        // apps for this block (favorites have their own place below)
         appsLabel.setText(("Apps in " + p.name).toUpperCase(Locale.US));
         apps.removeAllViews();
         int added = 0;
         for (Apps.AppInfo a : Apps.launchable(this, false)) {
             if (added >= 9) break;
+            if (s.favs.contains(a.pkg)) continue;
             boolean show = Apps.isEssential(this, a.pkg) && !a.pkg.contains("contacts") && !a.pkg.contains("deskclock") && !a.pkg.contains("photos");
             if (!show) {
                 Integer m = p.modes.get(a.pkg);
@@ -311,6 +317,8 @@ public class HomeActivity extends Activity {
         });
         apps.addView(all);
 
+        renderDock(s, now, god);
+
         // the main action
         if (god) {
             action.setVisibility(View.VISIBLE);
@@ -322,7 +330,136 @@ public class HomeActivity extends Activity {
             action.setVisibility(View.GONE);
         }
 
-        if (entering) Ui.stagger(noteView, upcomingRow, appsLabel, apps, action);
+        if (entering) Ui.stagger(noteView, upcomingRow, appsLabel, apps, action, dock);
+    }
+
+    /** Favorites: five to a row, line icons on stone. One the block doesn't allow is dimmed and opens "Not now". */
+    private void renderDock(final Store s, long now, boolean god) {
+        dock.removeAllViews();
+        List<String> favs = new java.util.ArrayList<>();
+        java.util.Map<String, String> labels = new java.util.HashMap<>();
+        for (Apps.AppInfo a : Apps.launchable(this, false)) labels.put(a.pkg, a.label);
+        for (String f : s.favs) if (labels.containsKey(f)) favs.add(f);
+        int cells = favs.size() < 5 ? favs.size() + 1 : favs.size();   // a "+" until the first row is full
+        LinearLayout row = null;
+        for (int i = 0; i < cells; i++) {
+            if (i % 5 == 0) {
+                row = Ui.row(this);
+                row.setGravity(Gravity.TOP);
+                dock.addView(row, Ui.lp(Ui.MATCH, Ui.WRAP, i == 0 ? 0 : Ui.dp(this, 10)));
+            }
+            View cell = i < favs.size() ? favCell(favs.get(i), labels.get(favs.get(i)), s.decide(this, favs.get(i), now).mode == Store.ALLOW, god)
+                    : addCell(god);
+            row.addView(cell, new LinearLayout.LayoutParams(0, Ui.WRAP, 1f));
+        }
+        if (row != null) for (int i = cells % 5; i > 0 && i < 5; i++) row.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
+        Icons.load(this, new Runnable() { @Override public void run() { for (int i = 0; i < dock.getChildCount(); i++) invalidateAll(dock.getChildAt(i)); } });
+    }
+
+    private static void invalidateAll(View v) {
+        v.invalidate();
+        if (v instanceof ViewGroup) for (int i = 0; i < ((ViewGroup) v).getChildCount(); i++) invalidateAll(((ViewGroup) v).getChildAt(i));
+    }
+
+    private LinearLayout cellShell(android.graphics.drawable.Drawable icon, String label, boolean on) {
+        LinearLayout cell = Ui.column(this);
+        cell.setGravity(Gravity.CENTER_HORIZONTAL);
+        cell.setClickable(true);
+        cell.setFocusable(true);
+        Ui.press(cell);
+        android.widget.ImageView iv = new android.widget.ImageView(this);
+        iv.setImageDrawable(icon);
+        iv.setAlpha(on ? 1f : 0.38f);
+        LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams(Ui.dp(this, 52), Ui.dp(this, 52));
+        ip.gravity = Gravity.CENTER_HORIZONTAL;
+        cell.addView(iv, ip);
+        TextView t = Ui.text(this, label, 11, on ? 0xFFC9CCD2 : Ui.QUIET, Ui.SORA);
+        t.setSingleLine(true);
+        t.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        t.setGravity(Gravity.CENTER);
+        t.setPadding(Ui.dp(this, 2), 0, Ui.dp(this, 2), 0);
+        cell.addView(t, Ui.lp(Ui.MATCH, Ui.WRAP, Ui.dp(this, 6)));
+        cell.setContentDescription(label + (on ? "" : ", not now"));
+        return cell;
+    }
+
+    private View favCell(final String pkg, final String label, boolean on, boolean god) {
+        android.graphics.drawable.Drawable d = Icons.night(this) ? Icons.of(this, pkg, label, true, god) : Apps.icon(this, pkg);
+        LinearLayout cell = cellShell(d, label, on);
+        cell.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { openApp(HomeActivity.this, pkg); }
+        });
+        cell.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override public boolean onLongClick(View v) { favOptions(pkg, label); return true; }
+        });
+        return cell;
+    }
+
+    private View addCell(boolean god) {
+        android.graphics.drawable.Drawable plus = new android.graphics.drawable.Drawable() {
+            final android.graphics.Paint pt = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+            @Override public void draw(android.graphics.Canvas c) {
+                android.graphics.Rect b = getBounds();
+                float r = Math.min(b.width(), b.height()) / 2f, cx = b.exactCenterX(), cy = b.exactCenterY();
+                pt.setStyle(android.graphics.Paint.Style.STROKE);
+                pt.setStrokeWidth(Math.max(1f, r / 32f));
+                pt.setColor(0x33AACFF6);
+                pt.setPathEffect(new android.graphics.DashPathEffect(new float[]{r / 6f, r / 8f}, 0));
+                c.drawCircle(cx, cy, r - pt.getStrokeWidth(), pt);
+                pt.setPathEffect(null);
+                pt.setStrokeCap(android.graphics.Paint.Cap.ROUND);
+                pt.setStrokeWidth(Math.max(1.5f, r / 14f));
+                pt.setColor(Ui.MUTED);
+                c.drawLine(cx - r * 0.28f, cy, cx + r * 0.28f, cy, pt);
+                c.drawLine(cx, cy - r * 0.28f, cx, cy + r * 0.28f, pt);
+            }
+            @Override public void setAlpha(int a) { }
+            @Override public void setColorFilter(android.graphics.ColorFilter f) { }
+            @Override public int getOpacity() { return android.graphics.PixelFormat.TRANSLUCENT; }
+        };
+        LinearLayout cell = cellShell(plus, "Add", true);
+        ((TextView) cell.getChildAt(1)).setTextColor(Ui.QUIET);
+        cell.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Intent i = new Intent(HomeActivity.this, AppsActivity.class);
+                i.putExtra("pick", true);
+                startActivity(i);
+            }
+        });
+        return cell;
+    }
+
+    private void favOptions(final String pkg, String label) {
+        final Store s = Store.get(this);
+        final int at = s.favs.indexOf(pkg);
+        final List<String> items = new java.util.ArrayList<>();
+        if (at > 0) items.add("Move left");
+        if (at >= 0 && at < s.favs.size() - 1) items.add("Move right");
+        if (s.favs.size() < Store.MAX_FAVS) items.add("Add another app");
+        items.add("Remove from home screen");
+        items.add("App info");
+        new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle(label)
+                .setItems(items.toArray(new String[0]), new android.content.DialogInterface.OnClickListener() {
+                    @Override public void onClick(android.content.DialogInterface d, int which) {
+                        String it = items.get(which);
+                        int i = s.favs.indexOf(pkg);
+                        if (it.equals("Move left") && i > 0) { s.favs.remove(i); s.favs.add(i - 1, pkg); }
+                        else if (it.equals("Move right") && i >= 0 && i < s.favs.size() - 1) { s.favs.remove(i); s.favs.add(i + 1, pkg); }
+                        else if (it.equals("Remove from home screen")) s.favs.remove(pkg);
+                        else if (it.equals("Add another app")) {
+                            Intent pick = new Intent(HomeActivity.this, AppsActivity.class);
+                            pick.putExtra("pick", true);
+                            startActivity(pick);
+                            return;
+                        } else if (it.equals("App info")) {
+                            startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:" + pkg)));
+                            return;
+                        }
+                        s.save();
+                        render(false);
+                    }
+                }).show();
     }
 
     private TextView appChip(String label, final String pkg, boolean gold) {

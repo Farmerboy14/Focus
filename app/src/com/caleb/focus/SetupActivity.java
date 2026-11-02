@@ -143,6 +143,19 @@ public class SetupActivity extends Activity {
         lnote.setLineSpacing(0, 1.3f);
         list.addView(lnote, Ui.lp(Ui.MATCH, Ui.WRAP));
 
+        LinearLayout ir = Ui.row(this);
+        ir.addView(Ui.text(this, "Night line icons", 15, Ui.INK, Ui.SORA), new LinearLayout.LayoutParams(0, Ui.WRAP, 1f));
+        android.widget.Switch is = new android.widget.Switch(this);
+        is.setChecked(Icons.night(this));
+        is.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
+            @Override public void onCheckedChanged(android.widget.CompoundButton b, boolean on) { Icons.setNight(SetupActivity.this, on); }
+        });
+        ir.addView(is);
+        list.addView(ir, Ui.lp(Ui.MATCH, Ui.dp(this, 52), Ui.dp(this, 8)));
+        TextView inote = Ui.text(this, "Thin ice-blue line icons for your apps (gold during Time with God), from the open-source Lawnicons pack. Off shows each app's own icon.", 12, Ui.MUTED, Ui.SORA);
+        inote.setLineSpacing(0, 1.3f);
+        list.addView(inote, Ui.lp(Ui.MATCH, Ui.WRAP));
+
         TextView wall = Ui.chip(this, "Use the Focus night sky on home and lock screen", false);
         wall.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {

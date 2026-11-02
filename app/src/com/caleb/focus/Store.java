@@ -53,6 +53,9 @@ public final class Store {
     public final Set<String> entertainment = new HashSet<>();
     public final Map<String, Long> passes = new HashMap<>();
     public final Set<String> pins = new HashSet<>();
+    /** Favorite apps on the home screen, in order. */
+    public final List<String> favs = new ArrayList<>();
+    public static final int MAX_FAVS = 10;
     public int defaultWake; // minutes after midnight
     public long wakeAt;      // when you last said you were awake
     public long prevWakeAt;  // what it was before, so a mistaken tap can be undone
@@ -212,6 +215,14 @@ public final class Store {
             }
             JSONArray pn = o.optJSONArray("pins");
             if (pn != null) for (int i = 0; i < pn.length(); i++) pins.add(pn.getString(i));
+            JSONArray fv = o.optJSONArray("favs");
+            if (fv != null) {
+                for (int i = 0; i < fv.length() && favs.size() < MAX_FAVS; i++) if (!favs.contains(fv.getString(i))) favs.add(fv.getString(i));
+            } else {
+                // Apps pinned to the home screen in older versions become the first favorites.
+                for (String pk : pins) if (favs.size() < MAX_FAVS) favs.add(pk);
+                pins.clear();
+            }
             defaultWake = o.optInt("defaultWake", defaultWake);
             wakeAt = o.optLong("wakeAt", 0);
             prevWakeAt = o.optLong("prevWakeAt", 0);
@@ -265,6 +276,9 @@ public final class Store {
             JSONArray pn = new JSONArray();
             for (String s : pins) pn.put(s);
             o.put("pins", pn);
+            JSONArray fv = new JSONArray();
+            for (String f : favs) fv.put(f);
+            o.put("favs", fv);
             o.put("defaultWake", defaultWake);
             o.put("wakeAt", wakeAt);
             o.put("prevWakeAt", prevWakeAt);

@@ -32,12 +32,14 @@ public class AppsActivity extends Activity {
     private final List<Apps.AppInfo> shown = new ArrayList<>();
     private Adapter adapter;
     private TextView sub;
+    private boolean pick;   // choosing a favorite for the home screen
 
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         Ui.init(this);
         Ui.deeperTransitions(this);
+        pick = getIntent().getBooleanExtra("pick", false);
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Ui.BG);
         SkyView sky = new SkyView(this, false);
@@ -53,7 +55,7 @@ public class AppsActivity extends Activity {
         back.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) { finish(); } });
         top.addView(back, new LinearLayout.LayoutParams(Ui.dp(this, 40), Ui.dp(this, 40)));
         col.addView(top);
-        col.addView(Ui.text(this, "All apps", 30, Ui.INK, Ui.SORA_LIGHT), Ui.lp(Ui.WRAP, Ui.WRAP, Ui.dp(this, 16)));
+        col.addView(Ui.text(this, pick ? "Add to home screen" : "All apps", 30, Ui.INK, Ui.SORA_LIGHT), Ui.lp(Ui.WRAP, Ui.WRAP, Ui.dp(this, 16)));
         sub = Ui.text(this, "", 13, Ui.MUTED, Ui.SORA);
         col.addView(sub, Ui.lp(Ui.WRAP, Ui.WRAP, Ui.dp(this, 6)));
 
@@ -82,6 +84,13 @@ public class AppsActivity extends Activity {
         list.setAdapter(adapter);
         list.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override public void onItemClick(AdapterView<?> p, View v, int pos, long id) {
+                if (pick) {
+                    Store s = Store.get(AppsActivity.this);
+                    String pk = shown.get(pos).pkg;
+                    if (!s.favs.contains(pk) && s.favs.size() < Store.MAX_FAVS) { s.favs.add(pk); s.save(); }
+                    finish();
+                    return;
+                }
                 HomeActivity.openApp(AppsActivity.this, shown.get(pos).pkg);
             }
         });
@@ -98,30 +107,40 @@ public class AppsActivity extends Activity {
         all.clear();
         all.addAll(Apps.launchable(this, true));
         Store.Preset p = Store.get(this).currentPreset(System.currentTimeMillis());
-        sub.setText("Now: " + p.name + ". Hold an app for more options.");
+        int room = Store.MAX_FAVS - Store.get(this).favs.size();
+        sub.setText(pick ? "Tap an app to put it on your home screen" + (room > 0 ? " (room for " + room + " more)." : ". It's full: remove one first.")
+                : "Now: " + p.name + ". Hold an app to put it on your home screen.");
         filter("");
+        Icons.load(this, new Runnable() { @Override public void run() { adapter.notifyDataSetChanged(); } });
     }
 
     private void filter(String q) {
         shown.clear();
         String l = q.toLowerCase(Locale.US).trim();
-        for (Apps.AppInfo a : all) if (l.isEmpty() || a.label.toLowerCase(Locale.US).contains(l)) shown.add(a);
+        List<String> favs = Store.get(this).favs;
+        for (Apps.AppInfo a : all) {
+            if (pick && favs.contains(a.pkg)) continue;
+            if (l.isEmpty() || a.label.toLowerCase(Locale.US).contains(l)) shown.add(a);
+        }
         adapter.notifyDataSetChanged();
     }
 
     private void options(final Apps.AppInfo a) {
         final Store s = Store.get(this);
         final boolean ent = s.isEntertainment(this, a.pkg);
-        final boolean pinned = s.pins.contains(a.pkg);
-        String[] items = {pinned ? "Remove from home screen" : "Show on home screen when allowed",
+        final boolean fav = s.favs.contains(a.pkg);
+        final boolean full = !fav && s.favs.size() >= Store.MAX_FAVS;
+        String[] items = {fav ? "Remove from home screen" : full ? "Home screen is full (" + Store.MAX_FAVS + ")" : "Add to home screen",
                 ent ? "Not entertainment" : "Mark as entertainment (Free time only)", "App info"};
         new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                 .setTitle(a.label)
                 .setItems(items, new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface d, int which) {
                         if (which == 0) {
-                            if (pinned) s.pins.remove(a.pkg); else s.pins.add(a.pkg);
+                            if (fav) s.favs.remove(a.pkg); else if (!full) s.favs.add(a.pkg);
                             s.save();
+                            android.widget.Toast.makeText(AppsActivity.this, fav ? "Removed from home screen" : full ? "Remove a favorite first" : "On your home screen",
+                                    android.widget.Toast.LENGTH_SHORT).show();
                         } else if (which == 1) {
                             if (ent) { s.entertainment.remove(a.pkg); s.entertainment.add("!" + a.pkg); }
                             else { s.entertainment.add(a.pkg); s.entertainment.remove("!" + a.pkg); }
@@ -160,7 +179,7 @@ public class AppsActivity extends Activity {
             } else row = (LinearLayout) v;
             Object[] tg = (Object[]) row.getTag();
             Apps.AppInfo a = shown.get(i);
-            ((ImageView) tg[0]).setImageDrawable(Apps.icon(c, a.pkg));
+            ((ImageView) tg[0]).setImageDrawable(Icons.of(c, a.pkg, a.label, true, false));
             ((TextView) tg[1]).setText(a.label);
             Store.Decision d = Store.get(c).decide(c, a.pkg, System.currentTimeMillis());
             String st;

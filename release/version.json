@@ -1,6 +1,6 @@
 {
-  "code": 13,
-  "name": "1.3",
-  "notes": "Meals from the store's stock, with prep split between Saturday and Wednesday so nothing sits too long.",
+  "code": 14,
+  "name": "1.4",
+  "notes": "Favorite apps on your home screen (tap + to add, hold one to move or remove it), and thin night line icons for every app.",
   "apk": "https://raw.githubusercontent.com/Farmerboy14/focus/main/release/Focus.apk"
 }
