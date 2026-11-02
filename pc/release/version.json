@@ -1,6 +1,6 @@
 {
-  "version": 11,
-  "name": "1.6",
+  "version": 12,
+  "name": "1.6.1",
   "minBootstrap": 1,
-  "notes": "Meals now come from what the store stocks: new breakfast and lunch notes in your week."
+  "notes": "Meals from the store's stock, with prep split between Saturday and Wednesday so nothing sits too long."
 }
