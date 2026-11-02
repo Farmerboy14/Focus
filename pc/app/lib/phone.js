@@ -22,7 +22,7 @@ function makePhone(o) {
   let state = 'closed';          // closed | opening | open | closing
   let geo = null;                // { stage, from, to, screen } in DIP
   let child = null, childPid = 0, hwnd = '', polling = null, errText = '', dropped = [];
-  let lastOpen = 0;
+  let lastOpen = 0, tail = [], retried = false;
 
   function settings() { return o.model.settings; }
   function send(ch, data) { if (stage && !stage.isDestroyed()) stage.webContents.send(ch, data); }
@@ -141,6 +141,7 @@ function makePhone(o) {
   async function startScrcpy() {
     stopScrcpy();
     errText = '';
+    tail = [];
     const exe = await findScrcpy();
     if (state !== 'opening' && state !== 'open') return;
     if (!exe) { status('missing', 'Focus couldn\'t find scrcpy on this PC.'); return; }
@@ -162,6 +163,7 @@ function makePhone(o) {
       text.split(/\r?\n/).forEach(function (l) {
         l = l.trim();
         if (!l) return;
+        tail.push(l); if (tail.length > 14) tail.shift();
         if (/^ERROR|error:|unrecognized option|Could not|not found|unauthorized/i.test(l)) errText = l.replace(/^ERROR:\s*/, '');
         const m = /Texture:\s*(\d+)x(\d+)/.exec(l);
         if (m) aspectSeen(Number(m[1]), Number(m[2]));
@@ -183,8 +185,16 @@ function makePhone(o) {
         return;
       }
       log('phone: scrcpy exited (' + code + ')' + (errText ? ': ' + errText : ''));
+      if (code && tail.length) log('phone: scrcpy said:\r\n    ' + tail.join('\r\n    '));
       if (state === 'open' && hwnd) { hwnd = ''; collapse(); return; }   // the mirror closed: fold away
       hwnd = '';
+      if (!retried && (state === 'opening' || state === 'open') && Date.now() - started < 20000) {
+        // The first run often starts adb's server and loses the race to connect. One quiet retry.
+        retried = true;
+        status('waking', 'Waking your phone…');
+        setTimeout(function () { if (state === 'opening' || state === 'open') startScrcpy(); }, 1500);
+        return;
+      }
       if (state === 'opening' || state === 'open') status('error', 'Couldn\'t reach your phone.', { detail: errText || 'Is it plugged in, with USB debugging on?' });
     });
     clearInterval(polling);
@@ -240,6 +250,7 @@ function makePhone(o) {
     geo = geometry(wb);
     geo.widgetBounds = wb;
     state = 'opening';
+    retried = false;
     const go = function () {
       s.setBounds(geo.stage);
       send('phone:show', { from: geo.from, to: geo.to, screen: geo.screenRel, pad: geo.pad, chin: geo.chin });
@@ -272,7 +283,7 @@ function makePhone(o) {
 
   ipcMain.handle('phone:collapse', function () { collapse(); return true; });
   ipcMain.handle('phone:shrunk', function () { finishCollapse(); return true; });
-  ipcMain.handle('phone:retry', function () { if (state === 'open' || state === 'opening') startScrcpy(); return true; });
+  ipcMain.handle('phone:retry', function () { if (state === 'open' || state === 'opening') { retried = false; startScrcpy(); } return true; });
   ipcMain.handle('phone:choose', async function () {
     const r = await dialog.showOpenDialog(stage && !stage.isDestroyed() ? stage : undefined, {
       title: 'Where is scrcpy.exe?', properties: ['openFile'], filters: [{ name: 'scrcpy', extensions: ['exe'] }]

@@ -626,7 +626,7 @@ function init() {
 
   updater = makeUpdater({ fetch: function (u, o) { return electron.net.fetch(u, o); }, current: VERSION, userDir: USER_DIR, bundledDir: BOOT.bundledDir, bootstrapVersion: BOOT.version, log: log });
 
-  watcher = new Watcher(log);
+  watcher = new Watcher(log, USER_DIR);
   watcher.on('foreground', safe(function (fg) {
     lastFg = fg;
     recordSeen(fg.exe, fg.title);

@@ -2,6 +2,9 @@
 // One long-lived, hidden PowerShell that reports the foreground window and minimizes on request.
 // Output: one JSON line per change. Input: commands on stdin ("min <hwnd>", "procs").
 const { spawn } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const EventEmitter = require('events');
 
 const SCRIPT = String.raw`
@@ -310,10 +313,26 @@ while ($true) {
 
 function encodedCommand(script) { return Buffer.from(script, 'utf16le').toString('base64'); }
 
+/**
+ * Writes the script to a .ps1 and returns the path. It's far too long for -EncodedCommand
+ * (Windows caps a command line at 32,767 characters). UTF-8 with a BOM so Windows PowerShell reads it right.
+ */
+function scriptFile(dir) {
+  const d = dir || os.tmpdir();
+  fs.mkdirSync(d, { recursive: true });
+  const f = path.join(d, 'focus-watcher.ps1');
+  const body = '\uFEFF' + SCRIPT;
+  let same = false;
+  try { same = fs.readFileSync(f, 'utf8') === body; } catch (e) { }
+  if (!same) fs.writeFileSync(f, body, 'utf8');
+  return f;
+}
+
 class Watcher extends EventEmitter {
-  constructor(log) {
+  constructor(log, dir) {
     super();
     this.log = log || function () { };
+    this.dir = dir || '';
     this.child = null;
     this.stopped = true;
     this.buf = '';
@@ -364,7 +383,7 @@ class Watcher extends EventEmitter {
     if (this.stopped) return;
     let c;
     try {
-      c = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-EncodedCommand', encodedCommand(SCRIPT)],
+      c = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', scriptFile(this.dir)],
         { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
     } catch (e) {
       this.log('watcher: spawn failed: ' + e.message);
@@ -456,4 +475,4 @@ class Watcher extends EventEmitter {
   }
 }
 
-module.exports = { Watcher, SCRIPT, encodedCommand };
+module.exports = { Watcher, SCRIPT, encodedCommand, scriptFile };

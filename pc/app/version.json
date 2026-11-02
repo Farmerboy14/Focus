@@ -1,6 +1,6 @@
 {
-  "version": 5,
-  "name": "1.4",
+  "version": 6,
+  "name": "1.4.1",
   "minBootstrap": 1,
-  "notes": "Click the widget and it grows into your phone. Your second screen shows the whole day."
+  "notes": "Fixes the Windows helper not starting in 1.4 (program blocking and the desktop layer)."
 }

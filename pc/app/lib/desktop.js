@@ -24,7 +24,7 @@ function makeDesktop(o) {
   let why = '';
   let failures = 0;
   let retryTimer = null, checkTimer = null, rebuildTimer = null, picTimer = null;
-  let picKey = '', picBusy = false, picFlip = false;
+  let picKey = '', picBusy = false, picFlip = false, picFailedAt = 0;
   let gen = 0;                   // bumps whenever the live layer is rebuilt, so an older build stops
   let canSetWall = true;
   const drawnWaits = new Map();  // webContents id -> resolve
@@ -138,7 +138,14 @@ function makeDesktop(o) {
     entry.hwnd = hwndOf(win);
     const p = physical(b);
     const r = await o.watcher.request('desk', [entry.hwnd, p.x, p.y, p.width, p.height]);
-    if (!r || !r.mode || r.mode === 'none') {
+    if (r === null) {
+      // The Windows helper didn't answer at all: not the desktop's fault, so don't count it.
+      log('desktop: the Windows helper didn\'t answer');
+      entry.gone = true;
+      win.destroy();
+      return 'nohelper';
+    }
+    if (!r.mode || r.mode === 'none') {
       log('desktop: couldn\'t attach to the desktop: ' + JSON.stringify(r));
       entry.gone = true;
       win.destroy();   // never leave it as a normal window over everything
@@ -157,8 +164,10 @@ function makeDesktop(o) {
     const displays = screen.getAllDisplays();
     const got = [];
     const drop = function () { got.forEach(function (e) { e.gone = true; if (!e.win.isDestroyed()) e.win.destroy(); }); };
+    let helperDown = false;
     for (const d of displays) {
       const e = await attach(d);
+      if (e === 'nohelper') { helperDown = true; break; }
       if (e) got.push(e);
       if (!active || wantPicture() || my !== gen) { drop(); return; }
     }
@@ -168,6 +177,12 @@ function makeDesktop(o) {
       log('desktop: live on ' + got.length + ' screen(s) (' + got[0].mode + ')');
       setMode('live');
       o.broadcast();
+      return;
+    }
+    if (helperDown) {
+      drop();
+      setMode('starting', 'Waiting for Windows…');
+      retryTimer = setTimeout(function () { if (active && !wantPicture()) buildLive().catch(oops); }, 15000);
       return;
     }
     failures++;
@@ -241,12 +256,13 @@ function makeDesktop(o) {
       if (!active || mode !== 'picture') return;
       const key = o.schedKey() + '|' + (settings().deskSide || 'right');
       if (key === picKey) return;
+      if (picFailedAt && Date.now() - picFailedAt < 60000) return;   // don't spin on a wallpaper Windows won't take
       if (picBusy) { refreshPicture(); return; }
       picBusy = true;
       try {
         const file = await renderPicture();
-        if (await setWallpaper(file)) picKey = key;
-      } catch (e) { log('desktop picture: ' + (e && e.stack || e)); }
+        if (await setWallpaper(file)) { picKey = key; picFailedAt = 0; } else picFailedAt = Date.now();
+      } catch (e) { picFailedAt = Date.now(); log('desktop picture: ' + (e && e.stack || e)); }
       finally { picBusy = false; }
     }, 1500);
   }
