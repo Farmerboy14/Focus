@@ -13,28 +13,82 @@
   const HOME = { lat: 40.19, lon: -92.58, name: 'Kirksville' };
   let st = null, bible = null, bibleDone = false, shownKey = '', drawnSent = false, timer = 0;
   let globe = null, globeDone = false, paused = false, verseRef = null;
+  const labels = {};
   const openNotes = {};
 
   if (still) document.body.classList.add('still');
 
-  // ---------- stars and the Earth ----------
+  // ---------- space: the Earth, the sky, the Moon and planets ----------
 
-  const stars = window.FocusStars.Stars($('stars'), { still: still });
+  const stars = window.FocusStars.Stars($('stars'), { still: still });   // only if WebGL isn't there
   try {
     // WebGL won't take images straight from disk (they count as another origin), so Focus hands them over as data.
-    globe = E.Globe($('globe'), { home: HOME, images: {
-      day: api.invoke('desk:image', 'earth_day.jpg'), night: api.invoke('desk:image', 'earth_night.jpg'), water: api.invoke('desk:image', 'earth_water.png') } });
-    globe.onReady = function () { globeDone = true; placeHome(); maybeDrawn(); };
-  } catch (e) { globeDone = true; $('earth').classList.add('hidden'); }
-  if (still) stars.still(); else stars.start();
+    const img = function (n) { return api.invoke('desk:image', n); };
+    globe = E.Scene($('space'), { home: HOME, sky: window.FocusSky, stars: window.FocusStarData, images: {
+      day: img('earth_day.jpg'), night: img('earth_night.jpg'), water: img('earth_water.png'), clouds: img('earth_clouds.jpg'), milky: img('milkyway.jpg') } });
+    document.body.classList.add('gl');
+    layoutScene();
+    globe.onFrame = function () { placeHome(); placeLabels(); };
+    globe.onReady = function () { globeDone = true; layoutScene(); placeHome(); placeLabels(); if (!still && !paused) globe.start(); maybeDrawn(); };
+  } catch (e) {
+    console.warn('space: ' + (e && e.message));
+    globe = null; globeDone = true; document.body.classList.remove('gl'); $('earth').classList.add('hidden');
+    if (still) stars.still(); else stars.start();
+  }
+
+  /** The Earth sits where the .earth box is; the box is sized in CSS for any shape of screen. */
+  function layoutScene() {
+    if (!globe) return;
+    const r = $('earth').getBoundingClientRect();
+    globe.layout(r.left + r.width / 2, r.top + r.height / 2, r.width / 2 / 1.1);
+  }
 
   function placeHome() {
     if (!globe) return;
     const p = globe.project(HOME.lat, HOME.lon);
     const h = $('home');
-    h.style.left = p.x + 'px'; h.style.top = p.y + 'px';
+    const e = $('earth').getBoundingClientRect();
+    h.style.left = (p.x - e.left) + 'px'; h.style.top = (p.y - e.top) + 'px';
     h.style.opacity = p.visible ? 1 : 0;
   }
+
+  /** Names next to the Sun, the Moon and the planets that are in view. */
+  const ORDER = ['sun', 'moon', 'venus', 'jupiter', 'mars', 'saturn', 'mercury', 'uranus', 'neptune'];
+  function placeLabels() {
+    if (!globe) return;
+    const seen = {}, taken = [];
+    const lh = parseFloat(getComputedStyle(document.documentElement).fontSize) * 1.15;
+    const er = $('earth').getBoundingClientRect(), ec = { x: er.left + er.width / 2 };
+    const col = document.querySelector('.col').getBoundingClientRect();
+    globe.bodies().sort(function (a, b) { return ORDER.indexOf(a.id) - ORDER.indexOf(b.id); }).forEach(function (b) {
+      seen[b.id] = true;
+      let el = labels[b.id];
+      if (!el) { el = labels[b.id] = U.el('span', { class: 'blabel ' + b.id, text: upper(b.name) }); $('labels').appendChild(el); }
+      const w = el.offsetWidth || 80;
+      // names go on the side away from the Earth, so they never sit on its glow
+      const left = b.x < ec.x;
+      el.classList.toggle('flip', left);
+      const x = Math.max(8, Math.min(window.innerWidth - w - 8, Math.round(left ? b.x - b.r - 6 - w : b.x + b.r + 6)));
+      let y = Math.round(b.y - lh / 2);
+      // when worlds sit close together (the Moon passing Jupiter), stack their names instead of overlapping them
+      for (let i = 0; i < 6 && taken.some(function (t) { return x < t.x + t.w && t.x < x + w && y < t.y + lh && t.y < y + lh; }); i++) y += lh;
+      taken.push({ x: x, y: y, w: w });
+      el.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+      // no names under the schedule column; it's for reading
+      el.style.opacity = x + w > col.left - 12 && x < col.right ? 0 : 1;
+    });
+    Object.keys(labels).forEach(function (id) { if (!seen[id]) labels[id].style.opacity = 0; });
+  }
+
+  function cloudLine(i) {
+    if (!i || !i.live || !i.at) { $('cloudLine').textContent = ''; return; }
+    $('cloudLine').textContent = 'CLOUDS FROM ' + upper(S.clock(i.at)) + ' · CONTAINS MODIFIED EUMETSAT DATA';
+  }
+  api.invoke('desk:cloudinfo').then(cloudLine).catch(function () { });
+  api.on('desk:clouds', function (i) {
+    cloudLine(i);
+    if (globe) globe.setClouds(api.invoke('desk:image', 'earth_clouds.jpg')).catch(function () { });
+  });
 
   function earthLine(t) {
     const st2 = E.sunTimes(t, HOME.lat, HOME.lon);
@@ -47,36 +101,37 @@
     return HOME.name + (still ? '' : ' ' + S.clock(t)) + (tail ? ' · ' + tail : '');
   }
 
-  // Drag the globe to turn it; it drifts home a few seconds after you let go.
+  // Drag anywhere in space to fly the camera around the Earth; it drifts back home 20 seconds after you let go.
   let drag = null;
-  $('globe').addEventListener('mousedown', function (e) {
+  $('space').addEventListener('mousedown', function (e) {
     if (!globe || e.button !== 0) return;
     drag = { x: e.clientX, y: e.clientY };
-    $('earth').classList.add('dragging');
+    document.body.classList.add('flying');
   });
   window.addEventListener('mousemove', function (e) {
-    stars.point(e.clientX / window.innerWidth * 2 - 1, e.clientY / window.innerHeight * 2 - 1);
+    const nx = e.clientX / window.innerWidth * 2 - 1, ny = e.clientY / window.innerHeight * 2 - 1;
+    if (globe) globe.point(nx, ny); else stars.point(nx, ny);
     if (!drag) return;
     globe.drag(e.clientX - drag.x, e.clientY - drag.y);
     drag.x = e.clientX; drag.y = e.clientY;
-    placeHome();
+    placeHome(); placeLabels();
   });
   window.addEventListener('mouseup', function () {
     if (!drag) return;
     drag = null;
-    $('earth').classList.remove('dragging');
-    globe.release(5000);
-    const follow = setInterval(placeHome, 50);
-    setTimeout(function () { clearInterval(follow); placeHome(); }, 7600);
+    document.body.classList.remove('flying');
+    globe.release(20000);
   });
-  window.addEventListener('mouseleave', function () { stars.point(0, 0); });
+  window.addEventListener('mouseleave', function () { if (globe) globe.point(0, 0); else stars.point(0, 0); });
 
   // Covered by a full-screen window, asleep, or locked: stop animating.
   api.on('desk:pause', function (p) {
     paused = !!p;
     document.body.classList.toggle('paused', paused);
     if (still) return;
-    if (paused) stars.stop(); else { stars.start(); render(); }
+    if (globe) { if (paused) globe.stop(); else if (globeDone) globe.start(); }
+    else if (paused) stars.stop(); else stars.start();
+    if (!paused) render();
   });
 
   // ---------- things you can click ----------
@@ -143,7 +198,8 @@
     renderLater(t);
     renderVerse(t);
     $('earthLine').textContent = earthLine(t);
-    if (globe && !paused) { globe.draw(t); placeHome(); }
+    layoutScene();                                 // the Earth moves with the schedule's side
+    if (globe && (still || paused)) { globe.draw(t); placeHome(); }
     maybeDrawn();
   }
 
@@ -199,7 +255,7 @@
     bibleDone = true;
     render();
   }).catch(function () { bibleDone = true; if (st) render(); });
-  window.addEventListener('resize', function () { if (globe) { globe.draw(now()); placeHome(); } });
+  window.addEventListener('resize', function () { if (globe) { layoutScene(); globe.draw(now()); placeHome(); placeLabels(); } });
   // A sleeping PC skips timers; catch up when it wakes.
   document.addEventListener('visibilitychange', function () { if (!document.hidden) { render(); schedule(); } });
 })();

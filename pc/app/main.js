@@ -18,6 +18,7 @@ const { makeLog } = require('./lib/log');
 const { makeDesktop } = require('./lib/desktop');
 const { makePhone } = require('./lib/phone');
 const { DeskInput } = require('./lib/deskinput');
+const { makeClouds } = require('./lib/clouds');
 
 // The desktop layer sits under the icons, where Chromium would think it's covered and stop drawing it.
 try { app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion'); } catch (e) { }
@@ -40,7 +41,7 @@ function res(...p) {
 function ui(name) { return path.join(APP_DIR, 'ui', name); }
 const PRELOAD = path.join(APP_DIR, 'preload.js');
 
-let store, model, link, watcher, server, updater, tray, desktop, phone;
+let store, model, link, watcher, server, updater, tray, desktop, phone, clouds;
 let mainWin = null, widgetWin = null, notnowWin = null;
 let quitting = false;
 let lastFg = null;
@@ -362,7 +363,7 @@ function deskKey() {
   const t = now();
   const cur = S.current(model.sched, t);
   return S.dayKey(t) + '|' + cur.preset + '|' + cur.title + '|' + cur.start + '|' + (cur.note || '') + '|' +
-    S.upcoming(model.sched, t, 5).map(function (x) { return x.start + x.title + x.preset; }).join(',');
+    S.upcoming(model.sched, t, 5).map(function (x) { return x.start + x.title + x.preset; }).join(',') + '|' + (clouds ? clouds.info().at : 0);
 }
 
 // ---------- tray ----------
@@ -608,12 +609,15 @@ function setupIpc() {
     if (a.done) { const p = w.getPosition(); model.settings.widget = { x: p[0], y: p[1] }; store.save(); }
     return true;
   });
-  const DESK_IMAGES = { 'earth_day.jpg': 'image/jpeg', 'earth_night.jpg': 'image/jpeg', 'earth_water.png': 'image/png' };
+  const DESK_IMAGES = { 'earth_day.jpg': 'image/jpeg', 'earth_night.jpg': 'image/jpeg', 'earth_water.png': 'image/png', 'earth_clouds.jpg': 'image/jpeg', 'milkyway.jpg': 'image/jpeg' };
   handle('desk:image', function (name) {
     const type = DESK_IMAGES[name];
     if (!type) return '';
-    return 'data:' + type + ';base64,' + fs.readFileSync(res('img', name)).toString('base64');
+    // the clouds: the latest live map when there is one, else the made-up map that ships with Focus
+    const live = name === 'earth_clouds.jpg' && clouds ? clouds.file() : null;
+    return 'data:' + type + ';base64,' + fs.readFileSync(live || res('img', name)).toString('base64');
   });
+  handle('desk:cloudinfo', function () { return clouds ? clouds.info() : { live: false, at: 0 }; });
   handle('desk:action', function (a) {
     a = a || {};
     if (a.what === 'phone') { if (phone) phone.open(); }
@@ -686,6 +690,16 @@ function init() {
     input: new DeskInput(log, USER_DIR)
   });
   desktop.apply();
+  clouds = makeClouds({
+    fetch: function (u, o) { return electron.net.fetch(u, o); }, userDir: USER_DIR, log: log,
+    enabled: function () { return !!model.settings.desktop; },
+    onNew: function () {
+      const i = clouds.info();
+      desktop.windows().forEach(function (w) { if (!w.isDestroyed()) w.webContents.send('desk:clouds', i); });
+      desktop.tick();
+    }
+  });
+  clouds.start();
   phone = makePhone({
     electron: electron, watcher: watcher, log: log, baseWeb: baseWeb, uiFile: ui, model: model, save: function () { store.save(); },
     widget: function () { return widgetWin && !widgetWin.isDestroyed() ? widgetWin : null; },

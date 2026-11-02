@@ -1,6 +1,6 @@
 {
-  "version": 13,
-  "name": "1.7",
+  "version": 14,
+  "name": "1.8",
   "minBootstrap": 1,
-  "notes": "Your desktop comes alive: twinkling stars, the Earth lit as it is right now, and a wallpaper you can click."
+  "notes": "Fly around the Earth: drag to orbit it and see the real sky behind it, with the Moon in its true phase, the planets where they really are, and live clouds from satellites every three hours."
 }

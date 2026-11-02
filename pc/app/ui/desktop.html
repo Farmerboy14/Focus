@@ -13,6 +13,19 @@
   .sky img, .dial .nowstar, .dial .tk, .dial .tk.on.glint { animation: none !important; }
   #stars { position: absolute; inset: -12px; width: calc(100% + 24px); height: calc(100% + 24px); pointer-events: none; }
   .sky img { inset: 0; width: 100%; height: 100%; }
+  /* Space: the Earth, the real sky, the Moon and planets, on one canvas behind everything */
+  #space { position: absolute; inset: 0; width: 100%; height: 100%; display: none; cursor: grab; }
+  body.gl #space { display: block; }
+  body.gl .sky, body.gl #stars { display: none; }
+  body.flying #space { cursor: grabbing; }
+  .labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .blabel { position: absolute; left: 0; top: 0; font-family: var(--mono); font-size: .66rem; letter-spacing: .2em; color: rgba(214, 223, 238, .62); white-space: nowrap; transition: opacity .4s ease; }
+  .blabel::before { content: ''; display: inline-block; width: .9rem; height: 1px; margin-right: .45rem; vertical-align: .22rem; background: rgba(214, 223, 238, .35); }
+  .blabel.flip::before { display: none; }
+  .blabel.flip::after { content: ''; display: inline-block; width: .9rem; height: 1px; margin-left: .45rem; vertical-align: .22rem; background: rgba(214, 223, 238, .35); }
+  .blabel.sun { color: rgba(255, 226, 170, .8); }
+  .blabel.moon { color: rgba(232, 232, 238, .74); }
+  body.still .labels { display: none; }
   .sky .dawn { transition: opacity 2.4s ease; }
   .shade { position: absolute; inset: 0; pointer-events: none; transition: opacity 1s ease;
     background: linear-gradient(to left, rgba(4, 6, 11, .62) 0%, rgba(4, 6, 11, .38) 34%, rgba(4, 6, 11, 0) 62%); }
@@ -24,10 +37,8 @@
   /* The Earth, on the open side of the screen */
   /* Centred in the open part of the screen and never wider than it, so it clears the schedule on any shape of monitor */
   .earth { --free: calc(100vw - 45rem); --size: min(50rem, calc(var(--free) * .84)); position: absolute; top: 50%; left: calc(var(--free) / 2);
-    width: var(--size); height: var(--size); transform: translate(-50%, -54%); }
+    width: var(--size); height: var(--size); transform: translate(-50%, -54%); pointer-events: none; }
   body.side-left .earth { left: calc(45rem + var(--free) / 2); }
-  .earth canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; }
-  .earth.dragging canvas { cursor: grabbing; }
   .earth .home { position: absolute; width: 0; height: 0; pointer-events: none; transition: opacity .4s ease; }
   .earth .home::before, .earth .home::after { content: ''; position: absolute; left: -1.1rem; top: -1.1rem; width: 2.2rem; height: 2.2rem; border-radius: 50%;
     border: 1.5px solid rgba(242, 211, 138, .8); animation: ping 3.2s ease-out infinite; }
@@ -38,6 +49,7 @@
   .earth .cap b { display: block; font-family: var(--mono); font-weight: 400; font-size: .76rem; letter-spacing: .22em; color: var(--muted); }
   .earth .cap span { display: block; margin-top: .45rem; font-size: 1.05rem; color: var(--soft); }
   .earth .cap i { display: block; margin-top: .35rem; font-style: normal; font-family: var(--mono); font-size: .7rem; letter-spacing: .14em; color: var(--quiet); opacity: .8; }
+  .earth .cap em { display: block; margin-top: .3rem; font-style: normal; font-family: var(--mono); font-size: .6rem; letter-spacing: .12em; color: var(--quiet); opacity: .6; }
   body.still .earth .cap i { display: none; }
 
   /* Things you can touch: they answer the mouse even through the desktop */
@@ -105,11 +117,12 @@
 <body>
 <div class="sky" id="sky" aria-hidden="true"><img src="../res/img/desk_night.jpg" alt=""><img class="dawn" src="../res/img/desk_dawn.jpg" alt=""></div>
 <canvas id="stars" aria-hidden="true"></canvas>
+<canvas id="space" aria-label="The Earth and the sky right now. Drag to fly around the Earth."></canvas>
+<div class="labels" id="labels" aria-hidden="true"></div>
 <div class="shade" aria-hidden="true"></div>
 <section class="earth" id="earth" aria-label="The Earth right now">
-  <canvas id="globe"></canvas>
   <div class="home" id="home"></div>
-  <div class="cap"><b>EARTH RIGHT NOW</b><span id="earthLine"></span><i>DRAG TO TURN IT</i></div>
+  <div class="cap"><b>EARTH RIGHT NOW</b><span id="earthLine"></span><i id="earthHint">DRAG TO FLY AROUND IT</i><em id="cloudLine"></em></div>
 </section>
 <main class="col">
   <span class="date" id="date"></span>
@@ -138,6 +151,8 @@
 <script src="../lib/bible.js"></script>
 <script src="common.js"></script>
 <script src="stars.js"></script>
+<script src="stars-data.js"></script>
+<script src="sky.js"></script>
 <script src="earth.js"></script>
 <script src="desktop.js"></script>
 </body>

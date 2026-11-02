@@ -71,8 +71,11 @@ async function shot(page, name) {
 (async function () {
   const browser = await chromium.launch();
   const errors = [];
+  let lastCtx = null;
   async function open(file, size, T) {
-    const ctx = await browser.newContext({ viewport: size, deviceScaleFactor: size.width <= 300 ? 2 : 1 });
+    // one page at a time: the desktop pages animate space, and old ones would keep drawing in the background
+    if (lastCtx) await lastCtx.close().catch(function () { });
+    const ctx = lastCtx = await browser.newContext({ viewport: size, deviceScaleFactor: size.width <= 300 ? 2 : 1 });
     const page = await ctx.newPage();
     page.on('pageerror', (e) => errors.push(file + ': ' + e.message));
     page.on('console', (m) => { if (m.type() === 'error') errors.push(file + ' console: ' + m.text()); });

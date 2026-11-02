@@ -48,6 +48,7 @@ app.whenReady().then(async function () {
   ipcMain.handle('bible:text', function () { return fs.readFileSync(path.join(APP, 'res', 'kjv.txt'), 'utf8'); });
   const actions = [];
   ipcMain.handle('desk:action', function (e, a) { actions.push(a); return true; });
+  ipcMain.handle('desk:cloudinfo', function () { return { live: false, at: 0 }; });
   ipcMain.handle('desk:image', function (e, name) { return 'data:image/' + (/png$/.test(name) ? 'png' : 'jpeg') + ';base64,' + fs.readFileSync(path.join(APP, 'res', 'img', name)).toString('base64'); });
   let d;
   const broadcast = function () { states.push(d ? d.status().mode : '?'); };
@@ -78,22 +79,29 @@ app.whenReady().then(async function () {
     const btn = await w.webContents.executeJavaScript('(function(){var r=document.querySelector("[data-act=today]").getBoundingClientRect();return [Math.round(r.x+r.width/2),Math.round(r.y+r.height/2)]})()');
     d.input('m ' + (btn[0] - 3) + ' ' + btn[1]); await sleep(100);
     d.input('m ' + btn[0] + ' ' + btn[1]);
-    await sleep(500);
-    const hover = await w.webContents.executeJavaScript('document.querySelector("[data-act=today]").matches(":hover")');
+    // the software renderer here is slow with space animating at full screen, so give hover a moment
+    let hover = false;
+    for (let i = 0; i < 12 && !hover; i++) {
+      await sleep(250);
+      d.input('m ' + btn[0] + ' ' + btn[1]);
+      hover = await w.webContents.executeJavaScript('document.querySelector("[data-act=today]").matches(":hover")');
+    }
     ok(hover, 'moving over a button from the desktop hovers it');
     d.input('d ' + btn[0] + ' ' + btn[1]); await sleep(60); d.input('u ' + btn[0] + ' ' + btn[1]);
     await sleep(300);
     ok(actions.length === 1 && actions[0].what === 'today', 'clicking it through the desktop opens the week: ' + JSON.stringify(actions));
-    // Drag the Earth: Kirksville's marker moves, then drifts home
+    // Drag through space: the camera flies around the Earth, so Kirksville's marker moves
     const homeAt = function () { return w.webContents.executeJavaScript('document.getElementById("home").style.left'); };
-    const g = await w.webContents.executeJavaScript('(function(){var r=document.getElementById("globe").getBoundingClientRect();return [Math.round(r.x+r.width/2),Math.round(r.y+r.height/2)]})()');
+    const g = await w.webContents.executeJavaScript('(function(){var r=document.getElementById("earth").getBoundingClientRect();return [Math.round(r.x+r.width/2),Math.round(r.y+r.height/2)]})()');
     const homeBefore = await homeAt();
     d.input('m ' + g[0] + ' ' + g[1]); d.input('d ' + g[0] + ' ' + g[1]);
     for (let k = 1; k <= 6; k++) { d.input('m ' + (g[0] + k * 25) + ' ' + g[1]); await sleep(30); }
     d.input('u ' + (g[0] + 150) + ' ' + g[1]);
     await sleep(200);
     const after = await homeAt();
-    ok(homeBefore !== after && parseFloat(after) > parseFloat(homeBefore), 'dragging the Earth turns it (home marker ' + homeBefore + ' -> ' + after + ')');
+    ok(homeBefore !== after && parseFloat(after) > parseFloat(homeBefore), 'dragging flies the camera around the Earth (home marker ' + homeBefore + ' -> ' + after + ')');
+    const lab = await w.webContents.executeJavaScript('document.querySelectorAll(".blabel").length + "|" + document.body.classList.contains("gl")');
+    ok(/\|true$/.test(lab), 'space is drawn with WebGL, with ' + lab.split('|')[0] + ' named worlds placed so far');
     d.input('l');
     // A window filling the screen pauses the animation; the desktop coming back resumes it
     d.foreground({ exe: 'chrome', title: 'YouTube', min: false, rect: [-8, -8, 1288, 1032] });
@@ -102,7 +110,7 @@ app.whenReady().then(async function () {
     d.foreground({ exe: 'explorer', title: '', min: false, rect: [0, 0, 1280, 1024] });
     await sleep(150);
     ok(!(await w.webContents.executeJavaScript('document.body.classList.contains("paused")')), 'clicking back to the desktop resumes them');
-    const gl = await w.webContents.executeJavaScript('(function(){var c=document.getElementById("globe");var x=c.getContext("webgl",{preserveDrawingBuffer:true});var p=new Uint8Array(4);x.readPixels(Math.floor(c.width/2),Math.floor(c.height/2),1,1,x.RGBA,x.UNSIGNED_BYTE,p);return Array.from(p)})()');
+    const gl = await w.webContents.executeJavaScript('(function(){var c=document.getElementById("space");var e=document.getElementById("earth").getBoundingClientRect();var k=c.width/c.clientWidth;var x=c.getContext("webgl",{preserveDrawingBuffer:true});var p=new Uint8Array(4);x.readPixels(Math.floor((e.x+e.width/2)*k),Math.floor(c.height-(e.y+e.height/2)*k),1,1,x.RGBA,x.UNSIGNED_BYTE,p);return Array.from(p)})()');
     ok(gl[3] === 255 && gl[0] + gl[1] + gl[2] > 0, 'the Earth is drawn (centre pixel ' + gl.join(',') + ')');
     if (img) fs.writeFileSync(path.join(userDir, 'live.png'), (await w.webContents.capturePage()).toPNG());
 
