@@ -8,6 +8,11 @@
   const $ = function (id) { return document.getElementById(id); };
   const MIN = 60000;
   let st = null, timer = 0;
+  const openNotes = {};
+  const stars = window.FocusStars.Stars($('stars'), { seed: 31 });
+  stars.start();
+  window.addEventListener('mousemove', function (e) { stars.point(e.clientX / window.innerWidth * 2 - 1, e.clientY / window.innerHeight * 2 - 1); });
+  api.on('desk:pause', function (p) { if (p) stars.stop(); else { stars.start(); render(); } });
 
   function upper(s) { return String(s).toUpperCase(); }
   function presetName(id) { return (st.sched.names && st.sched.names[id]) || id; }
@@ -85,11 +90,13 @@
       list.forEach(function (s) {
         const now = isCur(s, cur);
         const kids = [U.el('span', { class: 't', text: S.clock(s.start) }), U.el('span', { class: 'n' }, [U.el('i', { class: 'i-' + s.preset }), s.title])];
+        if (!now && s.note) kids.push(U.el('span', { class: 'more2', text: s.note }));
         if (now) {
           if (s.note) kids.push(U.el('span', { class: 'more', text: s.note }));
           kids.push(U.el('span', { class: 'left', text: upper(S.hm(S.minutesLeft(cur, t)) + ' left · until ' + S.clock(cur.end)) }));
         }
-        box.appendChild(U.el('div', { class: 'b ' + s.preset + (now ? ' cur' : s.end <= t ? ' past' : '') }, kids));
+        const k = s.day + s.start;
+        box.appendChild(U.el('div', { class: 'b ' + s.preset + (now ? ' cur' : s.end <= t ? ' past' : '') + (!now && s.note ? ' hit' : '') + (openNotes[k] ? ' open' : ''), 'data-k': k }, kids));
       });
     });
   }
@@ -99,6 +106,12 @@
     timer = setTimeout(function () { render(); schedule(); }, 60000 - (Date.now() % 60000) + 40);
   }
 
+  document.querySelector('.cols').addEventListener('click', function (e) {
+    const r = e.target.closest('.b.hit');
+    if (!r) return;
+    openNotes[r.dataset.k] = !openNotes[r.dataset.k];
+    r.classList.toggle('open', !!openNotes[r.dataset.k]);
+  });
   api.on('state', function (s) { st = s; render(); });
   api.invoke('state:get').then(function (s) { st = s; render(); schedule(); api.invoke('desk:drawn'); });
   document.addEventListener('visibilitychange', function () { if (!document.hidden) { render(); schedule(); } });

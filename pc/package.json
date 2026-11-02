@@ -12,7 +12,7 @@
     "test:extension": "xvfb-run -a node test/extension.js",
     "screens": "node test/screens.js",
     "package": "bash build-win.sh",
-    "test:desktop": "xvfb-run -a electron --no-sandbox --disable-gpu test/desktop-electron.js",
+    "test:desktop": "xvfb-run -a electron --no-sandbox --use-angle=swiftshader --enable-unsafe-swiftshader test/desktop-electron.js",
     "test:phone": "xvfb-run -a electron --no-sandbox --disable-gpu test/phone-electron.js",
     "test:notes": "xvfb-run -a node test/notes-upgrade-e2e.js"
   },

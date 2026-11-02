@@ -43,6 +43,7 @@ function backend(T) {
       case 'sched:set': model.sched = S.normalize({ v: 2, days: Object.assign({}, model.sched.days, arg.days || {}), names: arg.names || model.sched.names, editedAt: T }, model.sched); return snap();
       case 'pc:set': model.pc = arg; return snap();
       case 'bible:text': return KJV;
+      case 'desk:image': return 'data:' + (/png$/.test(arg) ? 'image/png' : 'image/jpeg') + ';base64,' + fs.readFileSync(path.join(__dirname, '..', 'app', 'res', 'img', arg)).toString('base64');
       case 'journal:unlock': return { entries: journal };
       case 'journal:save': journal = arg; return { ok: true };
       case 'steps:set': return [true, !!arg.on, false];
@@ -130,6 +131,7 @@ async function shot(page, name) {
   p = await open('desktop.html', { width: 1920, height: 1080 }, MON(22, 40)); await shot(p, '25-desktop-night-1080p');
   p = await open('desktop.html', { width: 2560, height: 1440 }, MON(19, 50)); await shot(p, '26-desktop-1440p');
   p = await open('desktop.html', { width: 1366, height: 768 }, MON(13, 20)); await leftSide(p); await shot(p, '27-desktop-laptop-left');
+  p = await open('desktop.html', { width: 1280, height: 1024 }, MON(14, 5)); await shot(p, '28b-desktop-5x4');
   p = await open('desktop.html?still=1', { width: 1920, height: 1080 }, MON(10, 20)); await shot(p, '28-desktop-still-picture');
   p = await open('desktop.html', { width: 1920, height: 1200 }, new Date(2026, 10, 7, 12, 50).getTime()); await shot(p, '29-desktop-saturday-1920x1200');
 

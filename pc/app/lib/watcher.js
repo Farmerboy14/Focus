@@ -324,7 +324,7 @@ while ($true) {
       $r = New-Object FocusWin+RECT
       [void][FocusWin]::GetWindowRect($h, [ref]$r)
       $min = [FocusWin]::IsIconic($h)
-      $key = "$h|$procId|$title|$min"
+      $key = "$h|$procId|$title|$min|$($r.Left),$($r.Top),$($r.Right),$($r.Bottom)"
       if ($key -ne $last) {
         $last = $key
         Say ('{"fg":{"exe":"' + (Esc $exe) + '","pid":' + $procId + ',"hwnd":' + $h.ToInt64() + ',"title":"' + (Esc $title) + '","min":' + $min.ToString().ToLower() + ',"rect":[' + $r.Left + ',' + $r.Top + ',' + $r.Right + ',' + $r.Bottom + ']}}')

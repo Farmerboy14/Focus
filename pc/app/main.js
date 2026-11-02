@@ -17,6 +17,7 @@ const { makeUpdater, readVersion } = require('./lib/updater');
 const { makeLog } = require('./lib/log');
 const { makeDesktop } = require('./lib/desktop');
 const { makePhone } = require('./lib/phone');
+const { DeskInput } = require('./lib/deskinput');
 
 // The desktop layer sits under the icons, where Chromium would think it's covered and stop drawing it.
 try { app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion'); } catch (e) { }
@@ -607,6 +608,19 @@ function setupIpc() {
     if (a.done) { const p = w.getPosition(); model.settings.widget = { x: p[0], y: p[1] }; store.save(); }
     return true;
   });
+  const DESK_IMAGES = { 'earth_day.jpg': 'image/jpeg', 'earth_night.jpg': 'image/jpeg', 'earth_water.png': 'image/png' };
+  handle('desk:image', function (name) {
+    const type = DESK_IMAGES[name];
+    if (!type) return '';
+    return 'data:' + type + ';base64,' + fs.readFileSync(res('img', name)).toString('base64');
+  });
+  handle('desk:action', function (a) {
+    a = a || {};
+    if (a.what === 'phone') { if (phone) phone.open(); }
+    else if (a.what === 'bible') showMain('bible', { book: Math.max(0, Math.min(65, a.book | 0)), chapter: Math.max(1, a.chapter | 0) });
+    else showMain(['god', 'today', 'home'].indexOf(a.what) >= 0 ? a.what : 'home');
+    return true;
+  });
   handle('widget:open', function () { if (phone) phone.open(); else showMain('home'); return true; });
   handle('notnow:pass', function (a) {
     const why = String(a && a.reason || '').trim();
@@ -651,6 +665,7 @@ function init() {
   watcher = new Watcher(log, USER_DIR);
   watcher.on('foreground', safe(function (fg) {
     lastFg = fg;
+    if (desktop) desktop.foreground(fg);
     recordSeen(fg.exe, fg.title);
     evaluate();
   }));
@@ -667,7 +682,8 @@ function init() {
   watcher.start();
   desktop = makeDesktop({
     electron: electron, watcher: watcher, log: log, baseWeb: baseWeb, uiFile: ui, resFile: res, userDir: USER_DIR,
-    model: model, save: function () { store.save(); }, schedKey: deskKey, broadcast: broadcast
+    model: model, save: function () { store.save(); }, schedKey: deskKey, broadcast: broadcast,
+    input: new DeskInput(log, USER_DIR)
   });
   desktop.apply();
   phone = makePhone({
@@ -714,8 +730,10 @@ function init() {
   setTimeout(safe(ensureNotNow), 4000); // ready before the first Not now
   try {
     powerMonitor.on('resume', safe(function () { startLink(); broadcast(); }));
-    powerMonitor.on('unlock-screen', safe(function () { broadcast(); }));
-    powerMonitor.on('resume', safe(function () { if (desktop) desktop.displaysChanged(); }));
+    powerMonitor.on('unlock-screen', safe(function () { broadcast(); if (desktop) desktop.lock(false); }));
+    powerMonitor.on('lock-screen', safe(function () { if (desktop) desktop.lock(true); }));
+    powerMonitor.on('suspend', safe(function () { if (desktop) desktop.lock(true); }));
+    powerMonitor.on('resume', safe(function () { if (desktop) { desktop.lock(false); desktop.displaysChanged(); } }));
   } catch (e) { }
 }
 

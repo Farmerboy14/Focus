@@ -46,6 +46,9 @@ app.whenReady().then(async function () {
   const states = [];
   ipcMain.handle('state:get', function () { const t = Date.now(); return { now: t, sched: model.sched, cur: S.current(model.sched, t), settings: model.settings }; });
   ipcMain.handle('bible:text', function () { return fs.readFileSync(path.join(APP, 'res', 'kjv.txt'), 'utf8'); });
+  const actions = [];
+  ipcMain.handle('desk:action', function (e, a) { actions.push(a); return true; });
+  ipcMain.handle('desk:image', function (e, name) { return 'data:image/' + (/png$/.test(name) ? 'png' : 'jpeg') + ';base64,' + fs.readFileSync(path.join(APP, 'res', 'img', name)).toString('base64'); });
   let d;
   const broadcast = function () { states.push(d ? d.status().mode : '?'); };
   d = makeDesktop({
@@ -70,6 +73,38 @@ app.whenReady().then(async function () {
     ok(/\|\d{1,2}:\d\d/.test(text) && text.indexOf('“') >= 0, 'the page shows the block, the clock and the verse: ' + text);
     const img = w ? await w.webContents.capturePage() : null;
     if (img) fs.writeFileSync(path.join(userDir, 'live.png'), img.toPNG());
+
+    // The mouse over the bare desktop reaches the page: click "My week"
+    const btn = await w.webContents.executeJavaScript('(function(){var r=document.querySelector("[data-act=today]").getBoundingClientRect();return [Math.round(r.x+r.width/2),Math.round(r.y+r.height/2)]})()');
+    d.input('m ' + (btn[0] - 3) + ' ' + btn[1]); await sleep(100);
+    d.input('m ' + btn[0] + ' ' + btn[1]);
+    await sleep(500);
+    const hover = await w.webContents.executeJavaScript('document.querySelector("[data-act=today]").matches(":hover")');
+    ok(hover, 'moving over a button from the desktop hovers it');
+    d.input('d ' + btn[0] + ' ' + btn[1]); await sleep(60); d.input('u ' + btn[0] + ' ' + btn[1]);
+    await sleep(300);
+    ok(actions.length === 1 && actions[0].what === 'today', 'clicking it through the desktop opens the week: ' + JSON.stringify(actions));
+    // Drag the Earth: Kirksville's marker moves, then drifts home
+    const homeAt = function () { return w.webContents.executeJavaScript('document.getElementById("home").style.left'); };
+    const g = await w.webContents.executeJavaScript('(function(){var r=document.getElementById("globe").getBoundingClientRect();return [Math.round(r.x+r.width/2),Math.round(r.y+r.height/2)]})()');
+    const homeBefore = await homeAt();
+    d.input('m ' + g[0] + ' ' + g[1]); d.input('d ' + g[0] + ' ' + g[1]);
+    for (let k = 1; k <= 6; k++) { d.input('m ' + (g[0] + k * 25) + ' ' + g[1]); await sleep(30); }
+    d.input('u ' + (g[0] + 150) + ' ' + g[1]);
+    await sleep(200);
+    const after = await homeAt();
+    ok(homeBefore !== after && parseFloat(after) > parseFloat(homeBefore), 'dragging the Earth turns it (home marker ' + homeBefore + ' -> ' + after + ')');
+    d.input('l');
+    // A window filling the screen pauses the animation; the desktop coming back resumes it
+    d.foreground({ exe: 'chrome', title: 'YouTube', min: false, rect: [-8, -8, 1288, 1032] });
+    await sleep(150);
+    ok(await w.webContents.executeJavaScript('document.body.classList.contains("paused")'), 'a full-screen window pauses the stars and Earth');
+    d.foreground({ exe: 'explorer', title: '', min: false, rect: [0, 0, 1280, 1024] });
+    await sleep(150);
+    ok(!(await w.webContents.executeJavaScript('document.body.classList.contains("paused")')), 'clicking back to the desktop resumes them');
+    const gl = await w.webContents.executeJavaScript('(function(){var c=document.getElementById("globe");var x=c.getContext("webgl",{preserveDrawingBuffer:true});var p=new Uint8Array(4);x.readPixels(Math.floor(c.width/2),Math.floor(c.height/2),1,1,x.RGBA,x.UNSIGNED_BYTE,p);return Array.from(p)})()');
+    ok(gl[3] === 255 && gl[0] + gl[1] + gl[2] > 0, 'the Earth is drawn (centre pixel ' + gl.join(',') + ')');
+    if (img) fs.writeFileSync(path.join(userDir, 'live.png'), (await w.webContents.capturePage()).toPNG());
 
     // Applying again while live doesn't redo anything
     const before = calls.length;

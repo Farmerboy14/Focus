@@ -37,7 +37,71 @@ function makeDesktop(o) {
 
   function settings() { return o.model.settings; }
   function wantPicture() { return settings().deskStyle === 'picture' || failures >= GIVE_UP_AFTER; }
-  function setMode(m, w) { if (m !== mode || (w || '') !== why) { mode = m; why = w || ''; o.broadcast(); } }
+  function setMode(m, w) {
+    if (o.input) { if (m === 'live') o.input.start(); else o.input.stop(); }
+    if (m !== mode || (w || '') !== why) { mode = m; why = w || ''; o.broadcast(); }
+  }
+
+  // ---------- the mouse, passed through from the bare desktop ----------
+
+  let hovered = null, pressed = false, locked = false;
+  if (o.input) o.input.on('line', function (l) { try { input(l); } catch (e) { log('desktop input: ' + e.message); } });
+
+  function input(line) {
+    const parts = String(line).trim().split(/\s+/);
+    const kind = parts[0];
+    if (kind === 'l') {
+      if (hovered && !hovered.win.isDestroyed()) hovered.win.webContents.sendInputEvent({ type: 'mouseLeave', x: 0, y: 0 });
+      hovered = null;
+      return;
+    }
+    const pt = { x: Number(parts[1]), y: Number(parts[2]) };
+    if (!isFinite(pt.x) || !isFinite(pt.y)) return;
+    let dip = pt;
+    try { if (screen.screenToDipPoint) dip = screen.screenToDipPoint(pt); } catch (e) { }
+    const d = screen.getDisplayNearestPoint(dip);
+    const w = wins.filter(function (e) { return e.display === d.id && !e.win.isDestroyed(); })[0];
+    if (!w) return;
+    const x = Math.round(dip.x - d.bounds.x), y = Math.round(dip.y - d.bounds.y);
+    if (hovered && hovered !== w && !hovered.win.isDestroyed()) hovered.win.webContents.sendInputEvent({ type: 'mouseLeave', x: 0, y: 0 });
+    if (hovered !== w) w.win.webContents.sendInputEvent({ type: 'mouseEnter', x: x, y: y });
+    hovered = w;
+    const wc = w.win.webContents;
+    if (kind === 'm') wc.sendInputEvent({ type: 'mouseMove', x: x, y: y, modifiers: pressed ? ['leftButtonDown'] : [] });
+    else if (kind === 'd') { pressed = true; wc.sendInputEvent({ type: 'mouseDown', x: x, y: y, button: 'left', clickCount: 1 }); }
+    else if (kind === 'u') { pressed = false; wc.sendInputEvent({ type: 'mouseUp', x: x, y: y, button: 'left', clickCount: 1 }); }
+  }
+
+  // ---------- resting when no one can see it ----------
+
+  function setPaused(w, p) {
+    if (w.paused === p || w.win.isDestroyed()) return;
+    w.paused = p;
+    w.win.webContents.send('desk:pause', p);
+  }
+
+  /** A window that fills a screen (maximized, full-screen, a game) hides the desktop there: stop animating it. */
+  function foreground(fg) {
+    if (!fg || !fg.rect || fg.rect.length !== 4 || locked) return;
+    const r = { x: fg.rect[0], y: fg.rect[1], w: fg.rect[2] - fg.rect[0], h: fg.rect[3] - fg.rect[1] };
+    const desktopItself = String(fg.exe || '').toLowerCase() === 'explorer' && (!fg.title || fg.title === 'Program Manager');
+    const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+    wins.forEach(function (w) {
+      if (!w.phys) return;
+      const b = w.phys;
+      const inside = cx >= b.x && cx < b.x + b.width && cy >= b.y && cy < b.y + b.height;
+      if (!inside) return; // only the screen the window is on can change
+      const ox = Math.max(0, Math.min(r.x + r.w, b.x + b.width) - Math.max(r.x, b.x));
+      const oy = Math.max(0, Math.min(r.y + r.h, b.y + b.height) - Math.max(r.y, b.y));
+      const covered = !fg.min && !desktopItself && (ox * oy) / (b.width * b.height) > 0.88;
+      setPaused(w, covered);
+    });
+  }
+
+  function lock(on) {
+    locked = !!on;
+    wins.forEach(function (w) { setPaused(w, locked); });
+  }
 
   function physical(rect) {
     try { return screen.dipToScreenRect ? screen.dipToScreenRect(null, rect) : rect; } catch (e) { return rect; }
@@ -152,6 +216,8 @@ function makeDesktop(o) {
       return null;
     }
     entry.mode = r.mode;
+    entry.phys = p;
+    entry.paused = false;
     win.showInactive();
     return entry;
   }
@@ -326,9 +392,12 @@ function makeDesktop(o) {
       if (mode === 'live' || mode === 'starting') scheduleRebuild(1500);
       else if (mode === 'picture') { picKey = ''; refreshPicture(); }
     },
+    input: input,
+    foreground: foreground,
+    lock: lock,
     windows: function () { return wins.map(function (w) { return w.win; }).filter(function (w) { return !w.isDestroyed(); }); },
     status: function () { return { mode: mode, why: why }; },
-    quit: function () { active = false; gen++; destroyLive(); }
+    quit: function () { active = false; gen++; destroyLive(); if (o.input) o.input.stop(); }
   };
 }
 
