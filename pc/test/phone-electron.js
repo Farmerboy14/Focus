@@ -16,7 +16,15 @@ const FRAMES = process.argv[process.argv.length - 1].indexOf('frames') >= 0 ? pr
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'focus-phone-'));
 const fake = path.join(tmp, 'scrcpy.exe');
 const argsFile = path.join(tmp, 'args.txt');
-fs.writeFileSync(fake, '#!/bin/sh\necho "$@" > ' + JSON.stringify(argsFile) + '\necho "INFO: Renderer: fake"\necho "INFO: Texture: 1080x2400"\nexec sleep 60\n');
+const failWifi = path.join(tmp, 'failwifi');
+fs.writeFileSync(fake, [
+  '#!/bin/sh',
+  'echo "$@" >> ' + JSON.stringify(argsFile),
+  'case "$*" in',
+  '  *--tcpip=*) if [ -f ' + JSON.stringify(failWifi) + ' ]; then echo "ERROR: Could not connect to 192.168.1.42:5555"; exit 1; fi ;;',
+  '  *--tcpip*) echo "INFO: Device IP: 192.168.1.42"; echo "INFO: Connected to 192.168.1.42:5555" ;;',
+  'esac',
+  'echo "INFO: Renderer: fake"', 'echo "INFO: Texture: 1080x2400"', 'exec sleep 60', ''].join('\n'));
 fs.chmodSync(fake, 0o755);
 const fails = [];
 function ok(c, m) { if (c) console.log('  ok   ' + m); else { console.log('  FAIL ' + m); fails.push(m); } }
@@ -133,6 +141,30 @@ app.whenReady().then(async function () {
     process.kill(pid2);
     await sleep(1500);
     ok(!phone.isOpen() && widget.isVisible(), 'when scrcpy closes, the phone folds back into the widget');
+
+    // 5) Wi-Fi: set up through the cable once, then straight over Wi-Fi; back to the cable if Wi-Fi is off
+    ok(model.settings.phoneAddr === '192.168.1.42:5555', 'remembered the phone\'s Wi-Fi address from the cable setup (' + model.settings.phoneAddr + ')');
+    ok(calls.some((c) => c[0] === 'phoneround' && c[1] === '4242' && Number(c[4]) > 0), 'the mirror\'s corners were rounded');
+    fs.writeFileSync(argsFile, '');
+    windowUp = true;
+    phone.open();
+    await sleep(1800);
+    let lines = fs.readFileSync(argsFile, 'utf8').trim().split('\n');
+    ok(lines.length === 1 && /--tcpip=192\.168\.1\.42:5555/.test(lines[0]) && !/--select-usb/.test(lines[0]), 'next time it connects straight over Wi-Fi: ' + lines[0].replace(/.*(--tcpip\S*)/, '$1'));
+    await phone.collapse();
+    await sleep(900);
+    fs.writeFileSync(argsFile, '');
+    fs.writeFileSync(failWifi, '1');
+    windowUp = false;
+    phone.open();
+    await sleep(2600);
+    windowUp = true;
+    await sleep(800);
+    lines = fs.readFileSync(argsFile, 'utf8').trim().split('\n');
+    ok(lines.length === 2 && /--tcpip=/.test(lines[0]) && /--select-usb --tcpip$/.test(lines[1]), 'when Wi-Fi is off it sets it up again through the cable');
+    ok(phone.isOpen() && calls.filter((c) => c[0] === 'phoneown').length > 0, 'and the mirror still comes up');
+    await phone.collapse();
+    await sleep(700);
     phone.quit();
   } catch (e) { console.log(e && e.stack); fails.push(String(e)); }
   console.log('\n' + (fails.length ? fails.length + ' FAILED' : 'all phone checks passed') + '   (' + tmp + ')');

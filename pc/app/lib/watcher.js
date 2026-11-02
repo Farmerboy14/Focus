@@ -205,6 +205,29 @@ public static class FocusPhone {
     return true;
   }
 
+  [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
+  [DllImport("user32.dll")] static extern int SetWindowRgn(IntPtr h, IntPtr rgn, bool redraw);
+  [DllImport("gdi32.dll")] static extern IntPtr CreateRoundRectRgn(int l, int t, int r, int b, int w, int h);
+
+  /** Rounds the mirror's corners (the screen floats with no frame around it). */
+  public static bool Round(long hwnd, int w, int h, int r) {
+    IntPtr me = new IntPtr(hwnd);
+    if (!IsWindow(me)) return false;
+    IntPtr rgn = CreateRoundRectRgn(0, 0, w + 1, h + 1, r * 2, r * 2);
+    return SetWindowRgn(me, rgn, true) != 0;
+  }
+
+  /** Puts the mirror back if Windows minimized it; says whether it's still there. */
+  public static string Keep(long hwnd, long owner, int x, int y, int w, int h, int r) {
+    IntPtr me = new IntPtr(hwnd);
+    if (!IsWindow(me)) return "\"gone\"";
+    if (!IsIconic(me)) return "\"ok\"";
+    ShowWindow(me, 4);
+    Own(hwnd, owner, x, y, w, h);
+    Round(hwnd, w, h, r);
+    return "\"restored\"";
+  }
+
   public static bool Front(long hwnd) {
     IntPtr me = new IntPtr(hwnd);
     return IsWindow(me) && SetForegroundWindow(me);
@@ -267,6 +290,8 @@ while ($true) {
           'phonefind' { $r = [FocusPhone]::Find([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($parts[3]))).ToString() }
           'phoneown' { $r = [FocusPhone]::Own([long]$parts[3], [long]$parts[4], [int]$parts[5], [int]$parts[6], [int]$parts[7], [int]$parts[8]).ToString().ToLower() }
           'phonefade' { $r = [FocusPhone]::Fade([long]$parts[3], [int]$parts[4], [int]$parts[5], [int]$parts[6]).ToString().ToLower() }
+          'phoneround' { $r = [FocusPhone]::Round([long]$parts[3], [int]$parts[4], [int]$parts[5], [int]$parts[6]).ToString().ToLower() }
+          'phonekeep' { $r = [FocusPhone]::Keep([long]$parts[3], [long]$parts[4], [int]$parts[5], [int]$parts[6], [int]$parts[7], [int]$parts[8], [int]$parts[9]) }
           'phonefront' { $r = [FocusPhone]::Front([long]$parts[3]).ToString().ToLower() }
           'procpath' {
             $pp = ''

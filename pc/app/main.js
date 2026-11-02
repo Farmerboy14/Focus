@@ -537,6 +537,7 @@ function setupIpc() {
     if (a.deskSide === 'left' || a.deskSide === 'right') { model.settings.deskSide = a.deskSide; desk = true; }
     if (a.deskStyle === 'live' || a.deskStyle === 'picture') { model.settings.deskStyle = a.deskStyle; desk = true; }
     if (a.deskSecond === 'day' || a.deskSecond === 'same') { model.settings.deskSecond = a.deskSecond; desk = true; }
+    if (typeof a.phoneWifi === 'boolean') model.settings.phoneWifi = a.phoneWifi;
     store.save();
     if (desk && desktop) desktop.apply();
     broadcast();

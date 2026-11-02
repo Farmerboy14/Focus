@@ -1,6 +1,6 @@
 {
-  "version": 7,
-  "name": "1.4.2",
+  "version": 8,
+  "name": "1.5",
   "minBootstrap": 1,
-  "notes": "Plainer messages when your phone isn't connected for the phone panel."
+  "notes": "The phone panel is borderless and connects over Wi-Fi after you plug the phone in once."
 }

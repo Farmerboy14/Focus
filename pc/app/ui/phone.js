@@ -15,15 +15,14 @@
   function show(g) {
     geo = g;
     document.documentElement.style.setProperty('--chin', g.chin + 'px');
-    // The screen keeps its place on the desktop while the phone grows around it: pin it to the corner that doesn't move.
+    document.documentElement.style.setProperty('--radius', (g.radius || 30) + 'px');
+    // The screen grows with the phone, rounded corners and all, and ends exactly where the mirror sits.
     const t = g.to, s = g.screen;
-    const fixRight = Math.abs((g.from.x + g.from.w) - (t.x + t.w)) < 2;
-    const fixBottom = Math.abs((g.from.y + g.from.h) - (t.y + t.h)) < 2;
-    screen.style.width = s.w + 'px'; screen.style.height = s.h + 'px';
-    screen.style.left = fixRight ? '' : (s.x - t.x) + 'px';
-    screen.style.right = fixRight ? ((t.x + t.w) - (s.x + s.w)) + 'px' : '';
-    screen.style.top = fixBottom ? '' : (s.y - t.y) + 'px';
-    screen.style.bottom = fixBottom ? ((t.y + t.h) - (s.y + s.h)) + 'px' : '';
+    document.documentElement.style.setProperty('--fromh', g.from.h + 'px');
+    screen.style.left = (s.x - t.x) + 'px';
+    screen.style.right = ((t.x + t.w) - (s.x + s.w)) + 'px';
+    screen.style.top = (s.y - t.y) + 'px';
+    screen.style.bottom = ((t.y + t.h) - (s.y + s.h)) + 'px';
     if (g.instant) {
       shell.classList.add('instant', 'open');
       box(t);

@@ -709,6 +709,10 @@
     $('tWidget').classList.toggle('on', !!st.settings.showWidget);
     $('tWidget').setAttribute('aria-checked', st.settings.showWidget ? 'true' : 'false');
     renderDesk();
+    const wifi = st.settings.phoneWifi !== false;
+    $('tWifi').classList.toggle('on', wifi);
+    $('tWifi').setAttribute('aria-checked', wifi ? 'true' : 'false');
+    $('wifiAddr').textContent = !wifi ? 'Uses the USB cable' : st.settings.phoneAddr ? 'Phone at ' + st.settings.phoneAddr : 'Plug the phone in once to set it up';
     $('verName').textContent = st.version.name + (st.version.fellBack ? ' (an update failed to start, so this is the installed copy)' : '');
     const r = st.reasons[0];
     $('reasonCount').textContent = r ? 'Last reason: “' + r.why + '” (' + r.exe + ', ' + ago(r.t) + ')' : '';
@@ -755,6 +759,7 @@
     call('pair:new').then(function (s) { if (s && s.pair) { st = s; renderSettings(); toast('New code made. Type it on your phone.'); } });
   });
   $('tStart').addEventListener('click', function () { call('settings:set', { startWithWindows: !st.settings.startWithWindows }).then(function (s) { apply(s); }); });
+  $('tWifi').addEventListener('click', function () { call('settings:set', { phoneWifi: st.settings.phoneWifi === false }).then(function (s) { apply(s); }); });
   $('tWidget').addEventListener('click', function () { call('settings:set', { showWidget: !st.settings.showWidget }).then(function (s) { apply(s); }); });
   $('updCheck').addEventListener('click', function () {
     const m = $('updMsg');

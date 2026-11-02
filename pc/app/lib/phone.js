@@ -9,8 +9,9 @@ const path = require('path');
 const { spawn } = require('child_process');
 
 const TITLE = 'Focus phone';
-const PAD = 12;        // bezel around the screen
-const CHIN = 84;       // the widget, living on as the phone's chin
+const GAP = 10;        // between the floating screen and the chin
+const CHIN = 84;       // the widget, living on under the phone as its chin
+const SCREEN_RADIUS = 30;
 const ANIM_MS = 480;
 const DEFAULT_ASPECT = 1280 / 2856; // Pixel 10 Pro, until scrcpy reports the real size
 
@@ -22,7 +23,7 @@ function makePhone(o) {
   let state = 'closed';          // closed | opening | open | closing
   let geo = null;                // { stage, from, to, screen } in DIP
   let child = null, childPid = 0, hwnd = '', polling = null, errText = '', dropped = [];
-  let lastOpen = 0, tail = [], retried = false;
+  let lastOpen = 0, tail = [], plan = [], step = 0, keeper = null;
 
   function settings() { return o.model.settings; }
   function send(ch, data) { if (stage && !stage.isDestroyed()) stage.webContents.send(ch, data); }
@@ -102,9 +103,9 @@ function makePhone(o) {
     const wa = d.workArea;
     const aspect = settings().phoneAspect > 0.2 && settings().phoneAspect < 1 ? settings().phoneAspect : DEFAULT_ASPECT;
     const H = Math.round(Math.min(wa.height - 32, 1040));
-    const sh = H - PAD - CHIN;
+    const sh = H - GAP - CHIN;
     const sw = Math.round(sh * aspect);
-    const W = Math.max(card.width, sw + 2 * PAD);
+    const W = Math.max(card.width, sw);
     const right = card.x + card.width / 2 > wa.x + wa.width / 2;
     const bottom = card.y + card.height / 2 > wa.y + wa.height / 2;
     let x = right ? card.x + card.width - W : card.x;
@@ -116,14 +117,16 @@ function makePhone(o) {
     const sx = Math.min(panel.x, card.x), sy = Math.min(panel.y, card.y);
     const st = { x: sx, y: sy, width: Math.max(panel.x + W, card.x + card.width) - sx, height: Math.max(panel.y + H, card.y + card.height) - sy };
     const rel = function (r) { return { x: r.x - sx, y: r.y - sy, w: r.width, h: r.height }; };
-    const scr = { x: panel.x + Math.round((W - sw) / 2), y: panel.y + PAD, width: sw, height: sh };
-    return { stage: st, from: rel(card), to: rel(panel), screen: scr, screenRel: rel(scr), pad: PAD, chin: CHIN };
+    // Borderless: the screen floats on its own with rounded corners, and the chin sits just under it.
+    const scr = { x: panel.x + Math.round((W - sw) / 2), y: panel.y, width: sw, height: sh };
+    return { stage: st, from: rel(card), to: rel(panel), screen: scr, screenRel: rel(scr), chin: CHIN, radius: SCREEN_RADIUS };
   }
 
   // ---------- scrcpy ----------
 
   function stopScrcpy() {
     clearInterval(polling); polling = null;
+    clearInterval(keeper); keeper = null;
     const pid = childPid;
     child = null; childPid = 0; hwnd = '';
     if (pid && process.platform === 'win32') {
@@ -131,23 +134,43 @@ function makePhone(o) {
     } else if (pid) { try { process.kill(pid); } catch (e) { } }
   }
 
-  function scrcpyArgs(rect) {
+  /**
+   * How to reach the phone, in order. Over Wi-Fi: the saved address first; if that fails (the phone restarted, or
+   * it's on another network), set Wi-Fi up again through the USB cable. scrcpy's --tcpip does the adb work.
+   */
+  function makePlan() {
+    const st = settings();
+    if (st.phoneWifi === false) return ['usb', 'usb'];
+    return st.phoneAddr ? ['wifi', 'setup', 'setup'] : ['setup', 'setup'];
+  }
+
+  function scrcpyArgs(rect, kind) {
     const args = ['--window-title=' + TITLE, '--window-borderless', '--no-audio',
       '--window-x=' + rect.x, '--window-y=' + rect.y, '--window-width=' + rect.width, '--window-height=' + rect.height,
       '--max-size=' + Math.max(rect.width, rect.height)];
+    if (kind === 'wifi') args.push('--tcpip=' + settings().phoneAddr);
+    if (kind === 'setup') args.push('--select-usb', '--tcpip');
     return args.filter(function (a) { return dropped.indexOf(a.split('=')[0]) < 0; });
   }
 
-  async function startScrcpy() {
+  /** Starts down the plan from the top. */
+  function startScrcpy() {
+    plan = makePlan();
+    step = 0;
+    attempt();
+  }
+
+  async function attempt() {
     stopScrcpy();
     errText = '';
     tail = [];
+    const kind = plan[step] || 'usb';
     const exe = await findScrcpy();
     if (state !== 'opening' && state !== 'open') return;
     if (!exe) { status('missing', 'Focus couldn\'t find scrcpy on this PC.'); return; }
-    status('waking', 'Waking your phone…');
+    status('waking', 'Waking your phone…', { detail: kind === 'wifi' ? 'Over Wi-Fi' : kind === 'setup' ? 'Setting up Wi-Fi through the cable' : '' });
     const rect = physical(stage, geo.screen);
-    const args = scrcpyArgs(rect);
+    const args = scrcpyArgs(rect, kind);
     let c;
     try {
       // Through cmd so scrcpy's console stays hidden but its window shows (like scrcpy-noconsole.vbs).
@@ -164,13 +187,19 @@ function makePhone(o) {
         l = l.trim();
         if (!l) return;
         tail.push(l); if (tail.length > 14) tail.shift();
-        if (/^ERROR|error:|unrecognized option|Could not|not found|unauthorized/i.test(l)) {
+        if (/^ERROR|error:|unrecognized option|Could not|not found|unauthorized|failed to connect|cannot connect/i.test(l)) {
           const e = l.replace(/^ERROR:\s*/, '');
           // Keep the specific reason; "Server connection failed" only says that something above went wrong.
           if (!(errText && /Server connection failed/i.test(e))) errText = e;
         }
         const m = /Texture:\s*(\d+)x(\d+)/.exec(l);
         if (m) aspectSeen(Number(m[1]), Number(m[2]));
+        // Wi-Fi set up through the cable: remember where the phone is for next time.
+        const ip = /Connected to ([0-9]{1,3}(?:\.[0-9]{1,3}){3}:\d+)/i.exec(l) || /Device IP:\s*([0-9]{1,3}(?:\.[0-9]{1,3}){3})/i.exec(l);
+        if (ip && kind === 'setup') {
+          const addr = ip[1].indexOf(':') > 0 ? ip[1] : ip[1] + ':5555';
+          if (settings().phoneAddr !== addr) { settings().phoneAddr = addr; o.save(); log('phone: Wi-Fi address ' + addr); }
+        }
       });
     };
     c.stdout && c.stdout.on('data', onOut);
@@ -180,31 +209,32 @@ function makePhone(o) {
       if (child !== c) return;
       child = null; childPid = 0;
       clearInterval(polling); polling = null;
+      clearInterval(keeper); keeper = null;
+      const live = (state === 'opening' || state === 'open');
       const bad = /unrecognized option '?(--[a-z-]+)/i.exec(errText);
-      if (bad && dropped.indexOf(bad[1]) < 0 && (state === 'opening' || state === 'open')) {
+      if (bad && dropped.indexOf(bad[1]) < 0 && live) {
         // An older scrcpy that doesn't know an option: try once more without it.
         dropped.push(bad[1]);
         log('phone: scrcpy doesn\'t know ' + bad[1] + ', trying without it');
-        startScrcpy();
+        attempt();
         return;
       }
-      log('phone: scrcpy exited (' + code + ')' + (errText ? ': ' + errText : ''));
+      log('phone: scrcpy (' + kind + ') exited (' + code + ')' + (errText ? ': ' + errText : ''));
       if (code && tail.length) log('phone: scrcpy said:\r\n    ' + tail.join('\r\n    '));
       if (state === 'open' && hwnd) { hwnd = ''; collapse(); return; }   // the mirror closed: fold away
       hwnd = '';
-      if (!retried && (state === 'opening' || state === 'open') && Date.now() - started < 20000) {
-        // The first run often starts adb's server and loses the race to connect. One quiet retry.
-        retried = true;
-        status('waking', 'Waking your phone…');
-        setTimeout(function () { if (state === 'opening' || state === 'open') startScrcpy(); }, 1500);
+      if (!live) return;
+      if (step + 1 < plan.length && Date.now() - started < 30000) {
+        step++;
+        setTimeout(function () { if (state === 'opening' || state === 'open') attempt(); }, 1200);
         return;
       }
-      if (state === 'opening' || state === 'open') status('error', 'Couldn\'t reach your phone.', { detail: friendly(errText) });
+      status('error', 'Couldn\'t reach your phone.', { detail: friendly(errText) });
     });
     clearInterval(polling);
     polling = setInterval(async function () {
       if (hwnd || !child) return;
-      if (Date.now() - started > 25000) { status('error', 'Your phone didn\'t answer.', { detail: errText || 'Check the cable and that USB debugging is allowed.' }); stopScrcpy(); return; }
+      if (Date.now() - started > 25000) { status('error', 'Your phone didn\'t answer.', { detail: friendly(errText) }); stopScrcpy(); return; }
       const h = await o.watcher.request('phonefind', [Buffer.from(TITLE, 'utf8').toString('base64')], 2000);
       if (!h || h === 0 || hwnd || !child || !stage) return;
       hwnd = String(h);
@@ -213,14 +243,27 @@ function makePhone(o) {
       await o.watcher.request('phonefade', [hwnd, 0, 255, 140], 3000);
       status('live', '');
       o.watcher.request('phonefront', [hwnd], 2000);
-      log('phone: mirror is up');
+      log('phone: mirror is up (' + kind + ')');
+      // Windows can minimize the mirror on its own (Win+D and the like); put it back while the phone is open.
+      clearInterval(keeper);
+      keeper = setInterval(function () {
+        if (!hwnd || state !== 'open' || !stage) return;
+        const r = physical(stage, geo.screen);
+        o.watcher.request('phonekeep', [hwnd, hwndOf(stage), r.x, r.y, r.width, r.height, radiusPx()], 2000);
+      }, 1000);
     }, 150);
   }
 
   /** scrcpy's errors, in plain words. */
   function friendly(e) {
-    if (!e) return 'Is it plugged in, with USB debugging on?';
-    if (/Could not find any ADB device/i.test(e)) return 'Your phone isn\'t connected. Plug it in with the USB cable, and if the phone asks, allow USB debugging.';
+    const wifi = settings().phoneWifi !== false;
+    if (!e) return wifi ? 'Plug your phone in once so Focus can connect it over Wi-Fi.' : 'Is it plugged in, with USB debugging on?';
+    if (/Could not find any (ADB|USB) device/i.test(e)) {
+      return wifi && settings().phoneAddr
+        ? 'Your phone isn\'t answering over Wi-Fi. Phones turn this off when they restart: plug it in once and Focus turns it back on.'
+        : wifi ? 'Plug your phone in with the USB cable once, and allow USB debugging if it asks. Focus then switches it to Wi-Fi.'
+          : 'Your phone isn\'t connected. Plug it in with the USB cable, and if the phone asks, allow USB debugging.';
+    }
     if (/unauthorized/i.test(e)) return 'Your phone is asking to allow USB debugging. Tap Allow on the phone, then Try again.';
     if (/more than one device/i.test(e)) return 'More than one phone or emulator is connected. Unplug the extra one, then Try again.';
     return e;
@@ -230,6 +273,14 @@ function makePhone(o) {
     if (!hwnd || !stage || stage.isDestroyed()) return;
     const r = physical(stage, geo.screen);
     await o.watcher.request('phoneown', [hwnd, hwndOf(stage), r.x, r.y, r.width, r.height], 3000);
+    await o.watcher.request('phoneround', [hwnd, r.width, r.height, radiusPx()], 2000);
+  }
+
+  /** The mirror's corner radius in real pixels, matching the drawn screen's. */
+  function radiusPx() {
+    let k = 1;
+    try { k = screen.getDisplayMatching(geo.stage).scaleFactor || 1; } catch (e) { }
+    return Math.round(SCREEN_RADIUS * k);
   }
 
   /** scrcpy says how big the phone's screen really is; fit the panel to it if it's different. */
@@ -245,7 +296,7 @@ function makePhone(o) {
     g.widgetBounds = geo.widgetBounds;
     geo = g;
     stage.setBounds(g.stage);
-    send('phone:show', { from: g.from, to: g.to, screen: g.screenRel, pad: g.pad, chin: g.chin, instant: true });
+    send('phone:show', { from: g.from, to: g.to, screen: g.screenRel, chin: g.chin, radius: g.radius, instant: true });
     place();
     void w0;
   }
@@ -263,10 +314,9 @@ function makePhone(o) {
     geo = geometry(wb);
     geo.widgetBounds = wb;
     state = 'opening';
-    retried = false;
     const go = function () {
       s.setBounds(geo.stage);
-      send('phone:show', { from: geo.from, to: geo.to, screen: geo.screenRel, pad: geo.pad, chin: geo.chin });
+      send('phone:show', { from: geo.from, to: geo.to, screen: geo.screenRel, chin: geo.chin, radius: geo.radius });
       s.show();
       // The panel paints the widget exactly where it was, then the real widget steps aside.
       setTimeout(function () { o.setWidgetVisible(false); }, 60);
@@ -296,7 +346,7 @@ function makePhone(o) {
 
   ipcMain.handle('phone:collapse', function () { collapse(); return true; });
   ipcMain.handle('phone:shrunk', function () { finishCollapse(); return true; });
-  ipcMain.handle('phone:retry', function () { if (state === 'open' || state === 'opening') { retried = false; startScrcpy(); } return true; });
+  ipcMain.handle('phone:retry', function () { if (state === 'open' || state === 'opening') startScrcpy(); return true; });
   ipcMain.handle('phone:choose', async function () {
     const r = await dialog.showOpenDialog(stage && !stage.isDestroyed() ? stage : undefined, {
       title: 'Where is scrcpy.exe?', properties: ['openFile'], filters: [{ name: 'scrcpy', extensions: ['exe'] }]
