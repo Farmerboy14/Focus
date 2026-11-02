@@ -34,7 +34,7 @@ function backend(T) {
       now: t, sched: model.sched, cur: S.current(model.sched, t), today: S.dayOf(t), slots: S.slots(model.sched, t), upcoming: S.upcoming(model.sched, t, 3),
       nextFree: S.nextFree(model.sched, t), pc: model.pc, ytUsedMin: 7, steps: [true, false, false], settings: model.settings, paused: 0,
       pair: { code: 'K7QM-2XPA-9RTB-HW4E', status: 'live', lastMessage: t - 120000, lastHeard: t }, version: { name: '1.0', version: 1, pending: '' },
-      seen: Object.keys(model.seen).map((k) => ({ exe: k, title: model.seen[k].title })), reasons: [{ t: t - 600000, exe: 'chrome', why: 'look up the supplier invoice portal' }], platform: 'win32'
+      seen: Object.keys(model.seen).map((k) => ({ exe: k, title: model.seen[k].title })), reasons: [{ t: t - 600000, exe: 'chrome', why: 'look up the supplier invoice portal' }], platform: 'win32', desk: { mode: 'live', why: '' }
     };
   };
   return async function (name, arg) {
@@ -78,7 +78,8 @@ async function shot(page, name) {
     await page.exposeFunction('__invoke', backend(T));
     await page.clock.setFixedTime(T);
     await page.addInitScript(STUB);
-    await page.goto('file://' + path.join(UI, file));
+    const q = file.indexOf('?');
+    await page.goto('file://' + path.join(UI, q < 0 ? file : file.slice(0, q)) + (q < 0 ? '' : file.slice(q)));
     return page;
   }
 
@@ -121,6 +122,16 @@ async function shot(page, name) {
   // Full-screen Time with God on a 1080p screen
   p = await open('index.html', { width: 1920, height: 1080 }, MON(6, 55));
   await p.evaluate(() => window.__emit('nav', { view: 'god' })); await shot(p, '16-god-1080p');
+
+  // Your day on the desktop
+  const leftSide = async (pg) => { await pg.evaluate(async () => { const s = await window.__invoke('state:get'); s.settings = Object.assign({}, s.settings, { deskSide: 'left' }); window.__emit('state', s); }); };
+  p = await open('desktop.html', { width: 1920, height: 1080 }, MON(10, 20)); await shot(p, '23-desktop-work-1080p');
+  p = await open('desktop.html', { width: 1920, height: 1080 }, MON(6, 55)); await shot(p, '24-desktop-god-1080p');
+  p = await open('desktop.html', { width: 1920, height: 1080 }, MON(22, 40)); await shot(p, '25-desktop-night-1080p');
+  p = await open('desktop.html', { width: 2560, height: 1440 }, MON(19, 50)); await shot(p, '26-desktop-1440p');
+  p = await open('desktop.html', { width: 1366, height: 768 }, MON(13, 20)); await leftSide(p); await shot(p, '27-desktop-laptop-left');
+  p = await open('desktop.html?still=1', { width: 1920, height: 1080 }, MON(10, 20)); await shot(p, '28-desktop-still-picture');
+  p = await open('desktop.html', { width: 1920, height: 1200 }, new Date(2026, 10, 7, 12, 50).getTime()); await shot(p, '29-desktop-saturday-1920x1200');
 
   // Widget
   p = await open('widget.html', { width: 300, height: 110 }, MON(10, 20));

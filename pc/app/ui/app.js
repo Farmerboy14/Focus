@@ -708,6 +708,7 @@
     $('tStart').setAttribute('aria-checked', st.settings.startWithWindows ? 'true' : 'false');
     $('tWidget').classList.toggle('on', !!st.settings.showWidget);
     $('tWidget').setAttribute('aria-checked', st.settings.showWidget ? 'true' : 'false');
+    renderDesk();
     $('verName').textContent = st.version.name + (st.version.fellBack ? ' (an update failed to start, so this is the installed copy)' : '');
     const r = st.reasons[0];
     $('reasonCount').textContent = r ? 'Last reason: “' + r.why + '” (' + r.exe + ', ' + ago(r.t) + ')' : '';
@@ -716,6 +717,32 @@
       $('updMsg').appendChild(el('button', { class: 'plain linkbtn', text: 'Restart now', onclick: function () { call('update:restart'); } }));
     }
   }
+
+  function renderDesk() {
+    const on = !!st.settings.desktop;
+    $('tDesk').classList.toggle('on', on);
+    $('tDesk').setAttribute('aria-checked', on ? 'true' : 'false');
+    document.querySelectorAll('.deskopt').forEach(function (r) { r.classList.toggle('hidden', !on); });
+    ['deskSide', 'deskStyle'].forEach(function (id) {
+      const v = st.settings[id] || (id === 'deskSide' ? 'right' : 'live');
+      $(id).querySelectorAll('button').forEach(function (b) { b.classList.toggle('on', b.dataset.v === v); });
+    });
+    const d = st.desk || { mode: 'off', why: '' };
+    $('deskMsg').textContent = !on ? 'Turning it off put your old wallpaper back.' :
+      d.mode === 'live' ? 'Live behind your icons: the time, your block, what\'s later and today\'s verse.' :
+        d.mode === 'picture' ? (d.why || 'Set as your wallpaper picture. It\'s redrawn when your block changes.') :
+          d.mode === 'unsupported' ? (d.why || 'Not available here.') :
+            d.mode === 'starting' ? (d.why || 'Putting it on your desktop…') : '';
+  }
+  $('tDesk').addEventListener('click', function () { call('settings:set', { desktop: !st.settings.desktop }).then(function (s) { apply(s); }); });
+  ['deskSide', 'deskStyle'].forEach(function (id) {
+    $(id).addEventListener('click', function (e) {
+      const b = e.target.closest('button');
+      if (!b) return;
+      const arg = {}; arg[id] = b.dataset.v;
+      call('settings:set', arg).then(function (s) { apply(s); });
+    });
+  });
 
   $('pairNew').addEventListener('click', function () {
     const b = $('pairNew');

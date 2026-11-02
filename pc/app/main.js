@@ -15,6 +15,10 @@ const { Watcher } = require('./lib/watcher');
 const { startServer } = require('./lib/server');
 const { makeUpdater, readVersion } = require('./lib/updater');
 const { makeLog } = require('./lib/log');
+const { makeDesktop } = require('./lib/desktop');
+
+// The desktop layer sits under the icons, where Chromium would think it's covered and stop drawing it.
+try { app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion'); } catch (e) { }
 
 const BOOT = global.FOCUS_BOOT || { version: 1, appDir: __dirname, bundledDir: __dirname, userDir: path.join(app.getPath('appData'), 'Focus') };
 const APP_DIR = __dirname;
@@ -34,7 +38,7 @@ function res(...p) {
 function ui(name) { return path.join(APP_DIR, 'ui', name); }
 const PRELOAD = path.join(APP_DIR, 'preload.js');
 
-let store, model, link, watcher, server, updater, tray;
+let store, model, link, watcher, server, updater, tray, desktop;
 let mainWin = null, widgetWin = null, notnowWin = null;
 let quitting = false;
 let lastFg = null;
@@ -142,6 +146,7 @@ function snapshot() {
     version: { name: VERSION.name, version: VERSION.version, fellBack: !!BOOT.fellBack, pending: pendingUpdate ? pendingUpdate.name : '' },
     seen: seen,
     reasons: store.recentReasons(8),
+    desk: desktop ? desktop.status() : { mode: 'off', why: '' },
     platform: process.platform
   };
 }
@@ -150,7 +155,7 @@ function broadcast() {
   clearTimeout(broadcastTimer);
   broadcastTimer = setTimeout(safe(function () {
     const snap = snapshot();
-    [mainWin, widgetWin].forEach(function (w) { if (w && !w.isDestroyed()) w.webContents.send('state', snap); });
+    [mainWin, widgetWin].concat(desktop ? desktop.windows() : []).forEach(function (w) { if (w && !w.isDestroyed()) w.webContents.send('state', snap); });
     updateTray(snap);
   }), 30);
 }
@@ -326,6 +331,15 @@ function tick() {
     broadcast();
   }
   for (const h in lastMinimize) if (t - lastMinimize[h] > 60000) delete lastMinimize[h];
+  if (desktop) desktop.tick();
+}
+
+/** What the still desktop picture shows; when this changes, it's redrawn. */
+function deskKey() {
+  const t = now();
+  const cur = S.current(model.sched, t);
+  return S.dayKey(t) + '|' + cur.preset + '|' + cur.title + '|' + cur.start + '|' + (cur.note || '') + '|' +
+    S.upcoming(model.sched, t, 5).map(function (x) { return x.start + x.title + x.preset; }).join(',');
 }
 
 // ---------- tray ----------
@@ -451,6 +465,7 @@ async function checkForUpdates(manual) {
 
 function restartNow(hidden) {
   quitting = true;
+  try { desktop && desktop.quit(); } catch (e) { }
   try { store.flush(); } catch (e) { }
   try { watcher.stop(); } catch (e) { }
   const args = process.argv.slice(1).filter(function (a) { return a !== '--hidden'; });
@@ -468,6 +483,7 @@ function restartWhenIdle() {
 
 function quit() {
   quitting = true;
+  try { desktop && desktop.quit(); } catch (e) { }
   try { store.flush(); } catch (e) { }
   try { link.stop(); } catch (e) { }
   try { watcher.stop(); } catch (e) { }
@@ -513,7 +529,12 @@ function setupIpc() {
   handle('settings:set', function (a) {
     if (typeof a.startWithWindows === 'boolean') { model.settings.startWithWindows = a.startWithWindows; applyLoginItem(); }
     if (typeof a.showWidget === 'boolean') { model.settings.showWidget = a.showWidget; setWidget(a.showWidget); }
+    let desk = false;
+    if (typeof a.desktop === 'boolean') { model.settings.desktop = a.desktop; desk = true; }
+    if (a.deskSide === 'left' || a.deskSide === 'right') { model.settings.deskSide = a.deskSide; desk = true; }
+    if (a.deskStyle === 'live' || a.deskStyle === 'picture') { model.settings.deskStyle = a.deskStyle; desk = true; }
     store.save();
+    if (desk && desktop) desktop.apply();
     broadcast();
     return snapshot();
   });
@@ -617,6 +638,14 @@ function init() {
   ensureShortcut();
   startLink();
   watcher.start();
+  desktop = makeDesktop({
+    electron: electron, watcher: watcher, log: log, baseWeb: baseWeb, uiFile: ui, resFile: res, userDir: USER_DIR,
+    model: model, save: function () { store.save(); }, schedKey: deskKey, broadcast: broadcast
+  });
+  desktop.apply();
+  ['display-added', 'display-removed', 'display-metrics-changed'].forEach(function (ev) {
+    screen.on(ev, safe(function () { desktop.displaysChanged(); }));
+  });
   setTimeout(function () { watcher.listProcesses(); }, 5000);
   setInterval(function () { watcher.listProcesses(); }, 10 * 60000);
 
@@ -650,6 +679,7 @@ function init() {
   try {
     powerMonitor.on('resume', safe(function () { startLink(); broadcast(); }));
     powerMonitor.on('unlock-screen', safe(function () { broadcast(); }));
+    powerMonitor.on('resume', safe(function () { if (desktop) desktop.displaysChanged(); }));
   } catch (e) { }
 }
 

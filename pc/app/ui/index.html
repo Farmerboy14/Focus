@@ -235,13 +235,21 @@
     <section class="view v-settings" id="v-settings">
       <div class="pagehead it" style="--i:0"><div><span class="label">FOCUS FOR WINDOWS</span><h1>Settings</h1></div></div>
       <div class="sgrid">
-        <div class="card scard pair it" style="--i:1">
+        <div class="scol">
+          <div class="card scard pair it" style="--i:1">
           <span class="ptitle">Pair with your phone</span>
           <p class="muted small">On the phone: Focus → Setup → Connect to your PC, then type this code. Everything between them is end-to-end encrypted.</p>
           <div class="code mono" id="pairCode"></div>
           <div class="row between">
             <span class="linkline" id="pairStatus"></span>
             <button class="btn" id="pairNew">New code</button>
+          </div>
+          </div>
+          <div class="card scard it" style="--i:2">
+            <div class="row between srow"><span>Your day on the desktop</span><button class="toggle plain" id="tDesk" role="switch" aria-label="Your day on the desktop"></button></div>
+            <div class="row between srow deskopt"><span>Side</span><div class="seg" id="deskSide"><button data-v="left">Left</button><button data-v="right">Right</button></div></div>
+            <div class="row between srow deskopt"><span>Style</span><div class="seg" id="deskStyle"><button data-v="live">Live</button><button data-v="picture">Picture</button></div></div>
+            <p class="muted small" id="deskMsg"></p>
           </div>
         </div>
         <div class="scol">
@@ -250,7 +258,7 @@
             <div class="row between srow"><span>Show the widget</span><button class="toggle plain" id="tWidget" role="switch" aria-label="Show the widget"></button></div>
             <div class="row between srow"><span>Send clipboard to phone</span><span class="mono muted">Ctrl+Alt+P</span></div>
           </div>
-          <div class="card scard it" style="--i:3">
+          <div class="card scard it" style="--i:4">
             <div class="row between"><span>Focus <span id="verName"></span></span><button class="btn" id="updCheck">Check for updates</button></div>
             <p class="muted small" id="updMsg"></p>
             <div class="row between"><button class="plain linkbtn" id="openLog">Open log</button><span class="muted small" id="reasonCount"></span></div>

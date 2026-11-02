@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'">
+<title>Focus desktop</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  /* Everything is sized from the screen's height, so it looks the same on any monitor and in the still picture. */
+  html { font-size: calc(100vh / 67.5); }
+  html, body { background: #05070C; cursor: default; }
+  /* A wallpaper must cost nothing while it sits there: no endless animations. */
+  .sky img, .dial .nowstar, .dial .tk, .dial .tk.on.glint { animation: none !important; }
+  .sky img { inset: 0; width: 100%; height: 100%; }
+  .sky .dawn { transition: opacity 2.4s ease; }
+  .shade { position: absolute; inset: 0; pointer-events: none; transition: opacity 1s ease;
+    background: linear-gradient(to left, rgba(4, 6, 11, .62) 0%, rgba(4, 6, 11, .38) 34%, rgba(4, 6, 11, 0) 62%); }
+  body.side-left .shade { transform: scaleX(-1); }
+
+  .col { position: absolute; top: 0; bottom: 0; right: 6.5rem; width: 37rem; display: flex; flex-direction: column; justify-content: center; padding: 4rem 0 6.5rem; }
+  body.side-left .col { right: auto; left: 7.5rem; }
+
+  .date { font-family: var(--mono); font-size: .95rem; letter-spacing: .2em; color: var(--soft); }
+  .clock { font-weight: 300; font-size: 8.6rem; line-height: .95; letter-spacing: -.045em; font-variant-numeric: tabular-nums; margin: .5rem 0 0 -.4rem; color: #F3F4F7; }
+  .clock small { font-size: 2.2rem; letter-spacing: .02em; margin-left: .8rem; color: var(--muted); font-weight: 400; }
+
+  .card { margin-top: 2.4rem; border-radius: 1.6rem; padding: 1.4rem 1.8rem 1.4rem 1.2rem; display: grid; grid-template-columns: 12.5rem minmax(0, 1fr); gap: 1.4rem; align-items: center;
+    background-color: rgba(6, 9, 16, .74); border-color: rgba(170, 207, 246, .14); background-size: 6rem; }
+  body.gold .card { border-color: rgba(242, 211, 138, .26); }
+  .dialhost { width: 12.5rem; height: 12.5rem; }
+  .dialhost svg { width: 100%; height: 100%; }
+  .now { display: flex; flex-direction: column; gap: .5rem; min-width: 0; }
+  .nowlabel { font-family: var(--mono); font-size: .78rem; letter-spacing: .16em; color: var(--muted); }
+  body.gold .nowlabel { color: var(--gold-deep); }
+  .title { font-size: 1.95rem; font-weight: 500; line-height: 1.15; letter-spacing: -.01em; }
+  body.gold .title { color: var(--gold); }
+  .note { font-size: 1.06rem; line-height: 1.45; color: var(--soft); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .left { font-family: var(--mono); font-size: .86rem; letter-spacing: .12em; color: var(--muted); margin-top: .2rem; }
+  .left b { font-family: var(--sans); font-weight: 400; font-size: 1.5rem; letter-spacing: -.02em; color: var(--ink); margin-right: .5rem; }
+  body.gold .left b { color: var(--gold); }
+
+  .later { margin-top: 2rem; padding: 0 .4rem; }
+  .later .label { font-size: .78rem; letter-spacing: .16em; display: block; margin-bottom: .5rem; }
+  .row { display: grid; grid-template-columns: 7.2rem minmax(0, 1fr) auto; align-items: baseline; gap: 1rem; padding: .62rem 0; border-top: 1px solid rgba(170, 207, 246, .08); }
+  .row:first-of-type { border-top: 0; }
+  .row .t { font-family: var(--mono); font-size: .9rem; letter-spacing: .04em; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .row .n { font-size: 1.12rem; color: #DADDE3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .p { font-family: var(--mono); font-size: .7rem; letter-spacing: .14em; color: var(--muted); opacity: .8; }
+  .row.god .n, .row.god .p { color: var(--gold); }
+  .row.free .p { color: #BFE3C8; }
+  .row.day { grid-template-columns: 1fr; padding: .9rem 0 .2rem; border-top: 0; }
+  .row.day span { font-family: var(--mono); font-size: .72rem; letter-spacing: .18em; color: var(--quiet); }
+
+  .verse { margin-top: 2.2rem; padding: 1.4rem .4rem 0; border-top: 1px solid rgba(170, 207, 246, .1); }
+  .verse q { quotes: none; display: block; font-family: var(--serif); font-style: italic; font-size: 1.42rem; line-height: 1.4; color: #EFEDE6; }
+  .verse span { display: block; margin-top: .7rem; font-family: var(--mono); font-size: .74rem; letter-spacing: .16em; color: var(--muted); }
+
+  /* The still picture (when the live layer can't attach) leaves out anything that would go stale. */
+  body.still .clock, body.still .left b { display: none; }
+  body.still .card { margin-top: 1.4rem; }
+</style>
+</head>
+<body>
+<div class="sky" id="sky" aria-hidden="true"><img src="../res/img/desk_night.jpg" alt=""><img class="dawn" src="../res/img/desk_dawn.jpg" alt=""></div>
+<div class="shade" aria-hidden="true"></div>
+<main class="col">
+  <span class="date" id="date"></span>
+  <span class="clock" id="clock"></span>
+  <section class="card stone">
+    <div class="dialhost" id="dial"></div>
+    <div class="now">
+      <span class="nowlabel" id="nowLabel"></span>
+      <span class="title" id="title"></span>
+      <span class="note hidden" id="note"></span>
+      <span class="left" id="left"></span>
+    </div>
+  </section>
+  <section class="later" id="laterBox">
+    <span class="label">LATER</span>
+    <div id="later"></div>
+  </section>
+  <section class="verse"><q id="verse"></q><span id="ref"></span></section>
+</main>
+<script src="../lib/schedule.js"></script>
+<script src="../lib/bible.js"></script>
+<script src="common.js"></script>
+<script src="desktop.js"></script>
+</body>
+</html>

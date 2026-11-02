@@ -14,7 +14,7 @@ function defaults() {
     yt: { day: '', usedSec: 0 },
     seen: {},
     steps: {},
-    settings: { startWithWindows: true, showWidget: true, widget: null },
+    settings: { startWithWindows: true, showWidget: true, widget: null, desktop: true, deskSide: 'right', deskStyle: 'live', origWall: null },
     pair: { code: '', lastId: '' }
   };
 }
@@ -68,6 +68,13 @@ function sanitize(raw) {
     if (typeof raw.settings.showWidget === 'boolean') d.settings.showWidget = raw.settings.showWidget;
     const w = raw.settings.widget;
     if (w && Number.isFinite(w.x) && Number.isFinite(w.y)) d.settings.widget = { x: w.x, y: w.y };
+    if (typeof raw.settings.desktop === 'boolean') d.settings.desktop = raw.settings.desktop;
+    if (raw.settings.deskSide === 'left' || raw.settings.deskSide === 'right') d.settings.deskSide = raw.settings.deskSide;
+    if (raw.settings.deskStyle === 'live' || raw.settings.deskStyle === 'picture') d.settings.deskStyle = raw.settings.deskStyle;
+    const ow = raw.settings.origWall;
+    if (ow && typeof ow === 'object') {
+      d.settings.origWall = { file: String(ow.file || ''), path: String(ow.path || ''), style: String(ow.style || ''), tile: String(ow.tile || '') };
+    }
   }
   if (raw.updAttempt && Number.isFinite(raw.updAttempt.v) && Number.isFinite(raw.updAttempt.n)) d.updAttempt = { v: raw.updAttempt.v, n: raw.updAttempt.n };
   if (raw.pair && typeof raw.pair === 'object') {

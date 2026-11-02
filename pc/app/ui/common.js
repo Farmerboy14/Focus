@@ -31,7 +31,7 @@
   function Dial(host, opts) {
     opts = opts || {};
     const box = 300;
-    const k = opts.mini ? 2.3 : 1; // the widget's small dial needs heavier ticks to read at 86 px
+    const k = opts.weight || (opts.mini ? 2.3 : 1); // small dials need heavier ticks to read
     const root = svg('svg', { viewBox: opts.mini ? '34 34 232 232' : '-20 -20 340 340', class: 'dial', 'aria-hidden': 'true' }, host);
     const cons = svg('g', {}, root);
     svg('circle', { cx: 150, cy: 150, r: 136, fill: 'none', stroke: 'rgba(255,255,255,0.06)', 'stroke-width': 2 }, cons);
