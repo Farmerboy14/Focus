@@ -181,6 +181,17 @@ public final class Apps {
         return rejoice;
     }
 
+    private static java.util.Set<String> guitar;
+
+    /** Caleb's guitar app (any app with "guitar" in its name) is allowed in Strict for practice. */
+    public static synchronized boolean isGuitar(Context c, String pkg) {
+        if (guitar == null || !rejoiceChecked) {
+            guitar = new HashSet<>();
+            for (AppInfo a : launchable(c, false)) if (a.label.toLowerCase(Locale.US).contains("guitar")) guitar.add(a.pkg);
+        }
+        return guitar.contains(pkg);
+    }
+
     public static boolean isRejoiceify(Context c, String pkg) {
         String r = rejoiceify(c);
         return r != null && r.equals(pkg);

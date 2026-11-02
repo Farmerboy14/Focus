@@ -31,7 +31,7 @@ public class LockActivity extends Activity {
     private final Handler h = new Handler(Looper.getMainLooper());
     private SkyView sky;
     private LinearLayout content;
-    private TextView clock, date, blockTitle, blockLeft, next, verse, ref, hint;
+    private TextView clock, date, blockTitle, blockLeft, next, verse, ref, hint, note;
     private DialView dial;
     private float downY;
     private boolean dragging;
@@ -83,7 +83,11 @@ public class LockActivity extends Activity {
         blockTitle = Ui.text(this, "", 19, Ui.INK, Ui.SORA_MED);
         blockLeft = Ui.mono(this, "", 11, Ui.MUTED);
         next = Ui.text(this, "", 13, Ui.MUTED, Ui.SORA);
+        note = Ui.text(this, "", 13, 0xFFC9CCD2, Ui.SORA);
+        note.setMaxLines(3);
+        note.setLineSpacing(0, 1.25f);
         info.addView(blockTitle);
+        info.addView(note, Ui.lp(Ui.MATCH, Ui.WRAP, Ui.dp(this, 6)));
         info.addView(blockLeft, Ui.lp(Ui.WRAP, Ui.WRAP, Ui.dp(this, 8)));
         info.addView(next, Ui.lp(Ui.WRAP, Ui.WRAP, Ui.dp(this, 8)));
         card.addView(info, new LinearLayout.LayoutParams(0, Ui.WRAP, 1f));
@@ -208,6 +212,8 @@ public class LockActivity extends Activity {
             dial.setRemaining(left / (float) len, false);
             blockTitle.setText(cur.index < 0 ? "Open time" : cur.title);
             blockTitle.setTextColor(god ? Ui.GOLD : Ui.INK);
+            note.setText(cur.note);
+            note.setVisibility(cur.note == null || cur.note.isEmpty() ? View.GONE : View.VISIBLE);
             blockLeft.setText((Ui.hm(left) + " left · until " + Ui.clock(cur.end)).toUpperCase(Locale.US));
             List<Store.Slot> up = s.upcoming(now, 1);
             next.setText(up.isEmpty() ? s.presetName(cur.preset) : "Next: " + up.get(0).title + " at " + Ui.clock(up.get(0).start));

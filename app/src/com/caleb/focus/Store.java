@@ -38,9 +38,10 @@ public final class Store {
 
     /** A block placed on the clock. */
     public static class Slot {
-        public String title, preset;
+        public String title, preset, note = "";
         public long start, end;
         public int index; // -1 for open time between blocks
+        public int day;   // 0 = Sunday
         public long minutesLeft(long now) { return Math.max(0, (end - now + MIN - 1) / MIN); }
         public long lengthMin() { return Math.max(1, (end - start) / MIN); }
     }
@@ -70,6 +71,7 @@ public final class Store {
         appCtx = c;
         sp = c.getSharedPreferences("focus", Context.MODE_PRIVATE);
         load();
+        if (migrated) { editedAt = System.currentTimeMillis(); save(); }
     }
 
     public SharedPreferences prefs() { return sp; }
@@ -115,10 +117,13 @@ public final class Store {
 
     // ---------- persistence ----------
 
+    private boolean migrated;
+
     private void load() {
         defaults();
+        defaultWeek();
         String raw = sp.getString("model", null);
-        if (raw == null) return;
+        if (raw == null) { migrated = true; return; }
         try {
             JSONObject o = new JSONObject(raw);
             JSONObject ps = o.optJSONObject("presets");
@@ -168,8 +173,15 @@ public final class Store {
             ytLimitMin = o.optInt("ytLimit", ytLimitMin);
             ytDay = o.optString("ytDay", "");
             ytUsedMs = o.optLong("ytUsed", 0);
+            JSONObject wk = o.optJSONObject("week");
+            if (wk == null || !readWeek(wk)) {
+                // Older versions kept one wake-anchored day: start from the planned week instead.
+                defaultWeek();
+                migrated = true;
+            }
         } catch (Exception e) {
             defaults();
+            defaultWeek();
         }
     }
 
@@ -196,6 +208,7 @@ public final class Store {
                 bl.put(j);
             }
             o.put("blocks", bl);
+            o.put("week", writeWeek());
             JSONArray en = new JSONArray();
             for (String s : entertainment) en.put(s);
             o.put("ent", en);
@@ -217,70 +230,112 @@ public final class Store {
         } catch (Exception ignored) { }
     }
 
-    // ---------- the day ----------
+    // ---------- the week ----------
 
-    /** Start of today's plan: when you said you woke, or your usual wake time. */
-    public long totalMin() {
-        long t = 0;
-        for (Block b : blocks) t += b.len;
-        return t;
+    public static final String[] DAY_KEYS = {"sun", "mon", "tue", "wed", "thu", "fri", "sat"};
+    public static final String[] DAY_NAMES = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+
+    /** One block on a weekday, in clock minutes. end <= start means it runs past midnight. */
+    public static class TBlock {
+        public int start, end;
+        public String title, preset, note;
+        public TBlock(int s, int e, String t, String p, String n) { start = s; end = e; title = t; preset = p; note = n == null ? "" : n; }
+        public TBlock copy() { return new TBlock(start, end, title, preset, note); }
     }
 
-    public long anchor(long now) {
-        long span = Math.max(12 * HOUR, totalMin() * MIN);
-        if (wakeAt > 0 && now >= wakeAt && now < wakeAt + span) return wakeAt;
-        Calendar c = Calendar.getInstance();
-        c.setTimeInMillis(now);
-        c.set(Calendar.HOUR_OF_DAY, defaultWake / 60);
-        c.set(Calendar.MINUTE, defaultWake % 60);
-        c.set(Calendar.SECOND, 0);
-        c.set(Calendar.MILLISECOND, 0);
-        if (c.getTimeInMillis() > now) c.add(Calendar.DAY_OF_MONTH, -1);
-        long t = c.getTimeInMillis();
-        // An early wake tap (before today's usual time, or after it) keeps owning the day; its blocks have ended, so it's open time.
-        if (wakeAt > 0 && wakeAt <= now && wakeAt > t - 6 * HOUR) return wakeAt;
-        return t;
+    /** week.get(0) = Sunday ... week.get(6) = Saturday */
+    public final List<List<TBlock>> week = new ArrayList<>();
+
+    static int mins(String hhmm) {
+        try {
+            String[] p = hhmm.trim().split(":");
+            return (Integer.parseInt(p[0]) * 60 + Integer.parseInt(p[1])) % 1440;
+        } catch (Exception e) { return 0; }
     }
 
-    public void wakeNow() {
-        prevWakeAt = wakeAt;
-        wakeAt = System.currentTimeMillis();
-        scheduleChanged();
+    static String hhmm(int m) {
+        return String.format(java.util.Locale.US, "%02d:%02d", (m / 60) % 24, m % 60);
     }
 
-    public void undoWake() {
-        wakeAt = prevWakeAt;
-        prevWakeAt = 0;
-        scheduleChanged();
+    boolean readWeek(JSONObject days) {
+        try {
+            List<List<TBlock>> w = new ArrayList<>();
+            for (String k : DAY_KEYS) {
+                JSONArray arr = days.optJSONArray(k);
+                List<TBlock> d = new ArrayList<>();
+                if (arr != null) for (int i = 0; i < arr.length(); i++) {
+                    JSONObject b = arr.getJSONObject(i);
+                    String pid = b.optString("preset", "normal");
+                    if (!presets.containsKey(pid)) pid = "normal";
+                    d.add(new TBlock(mins(b.optString("start", "00:00")), mins(b.optString("end", "00:00")),
+                            b.optString("title", "Block"), pid, b.optString("note", "")));
+                }
+                sortDay(d);
+                w.add(d);
+            }
+            week.clear();
+            week.addAll(w);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
-    /** Call after any change to the blocks or wake times: saves and tells the PC. */
+    JSONObject writeWeek() throws Exception {
+        JSONObject days = new JSONObject();
+        for (int i = 0; i < 7; i++) {
+            JSONArray arr = new JSONArray();
+            for (TBlock b : week.get(i)) {
+                JSONObject j = new JSONObject();
+                j.put("start", hhmm(b.start)); j.put("end", hhmm(b.end));
+                j.put("title", b.title); j.put("preset", b.preset); j.put("note", b.note);
+                arr.put(j);
+            }
+            days.put(DAY_KEYS[i], arr);
+        }
+        return days;
+    }
+
+    public static void sortDay(List<TBlock> d) {
+        java.util.Collections.sort(d, new java.util.Comparator<TBlock>() {
+            @Override public int compare(TBlock a, TBlock b) { return a.start - b.start; }
+        });
+    }
+
+    /** The starting week that ships with the app (shared/week.json). */
+    void defaultWeek() {
+        try {
+            java.io.InputStream in = appCtx.getAssets().open("week.json");
+            java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) > 0) bo.write(buf, 0, n);
+            in.close();
+            if (readWeek(new JSONObject(new String(bo.toByteArray(), "UTF-8")))) return;
+        } catch (Exception ignored) { }
+        week.clear();
+        for (int i = 0; i < 7; i++) {
+            List<TBlock> d = new ArrayList<>();
+            d.add(new TBlock(22 * 60 + 30, 6 * 60 + 30, "Sleep", "strict", "Lights out."));
+            week.add(d);
+        }
+    }
+
+    /** Call after any change to the week: saves and tells the PC. */
     public void scheduleChanged() {
         editedAt = System.currentTimeMillis();
         save();
         Sync.pushState(appCtx);
     }
 
-    /** Takes the PC's day if it's newer than ours. Returns true when something changed. */
+    /** Takes the PC's week if it's newer than ours. Returns true when something changed. */
     public synchronized boolean applyRemote(JSONObject sc) {
         try {
+            if (sc.optInt("v", 1) != 2) return false;
             long at = sc.optLong("editedAt", 0);
             if (at <= editedAt) return false;
-            JSONArray bl = sc.optJSONArray("blocks");
-            if (bl != null && bl.length() > 0) {
-                List<Block> nb = new ArrayList<>();
-                for (int i = 0; i < bl.length(); i++) {
-                    JSONObject b = bl.getJSONObject(i);
-                    String pid = b.optString("preset", "normal");
-                    if (!presets.containsKey(pid)) pid = "normal";
-                    nb.add(new Block(b.optString("title", "Block"), pid, Math.max(5, b.optInt("len", 60))));
-                }
-                blocks.clear();
-                blocks.addAll(nb);
-            }
-            defaultWake = sc.optInt("defaultWake", defaultWake);
-            wakeAt = sc.optLong("wakeAt", wakeAt);
-            prevWakeAt = sc.optLong("prevWakeAt", prevWakeAt);
+            JSONObject days = sc.optJSONObject("days");
+            if (days == null || !readWeek(days)) return false;
             JSONObject names = sc.optJSONObject("names");
             if (names != null) for (String id : PRESET_IDS) {
                 String n = names.optString(id, null);
@@ -294,87 +349,94 @@ public final class Store {
         }
     }
 
-    /** Minutes until the next usual wake time. */
-    public long minutesToUsualWake(long now) {
+    /** Midnight at the start of the day that contains t, moved by addDays. */
+    private static Calendar dayStart(long t, int addDays) {
         Calendar c = Calendar.getInstance();
-        c.setTimeInMillis(now);
-        c.set(Calendar.HOUR_OF_DAY, defaultWake / 60);
-        c.set(Calendar.MINUTE, defaultWake % 60);
+        c.setTimeInMillis(t);
+        c.set(Calendar.HOUR_OF_DAY, 0);
+        c.set(Calendar.MINUTE, 0);
         c.set(Calendar.SECOND, 0);
         c.set(Calendar.MILLISECOND, 0);
-        if (c.getTimeInMillis() <= now) c.add(Calendar.DAY_OF_MONTH, 1);
-        return (c.getTimeInMillis() - now) / MIN;
+        c.add(Calendar.DAY_OF_MONTH, addDays);
+        return c;
     }
 
-    public boolean dayStartedByTap(long now) {
-        return wakeAt > 0 && anchor(now) == wakeAt;
+    /** Wall-clock time on the given day: daylight saving never shifts a block. */
+    private static long at(Calendar day, int minutes) {
+        Calendar c = (Calendar) day.clone();
+        if (minutes >= 1440) { c.add(Calendar.DAY_OF_MONTH, minutes / 1440); minutes %= 1440; }
+        c.set(Calendar.HOUR_OF_DAY, minutes / 60);
+        c.set(Calendar.MINUTE, minutes % 60);
+        return c.getTimeInMillis();
     }
 
-    public List<Slot> slots(long now) {
+    /** The blocks of the day that contains t, placed on the clock. */
+    public List<Slot> slotsOfDay(long t, int addDays) {
+        Calendar day = dayStart(t, addDays);
+        int dow = day.get(Calendar.DAY_OF_WEEK) - 1;
         List<Slot> out = new ArrayList<>();
-        long a = anchor(now);
-        long off = 0;
-        for (int i = 0; i < blocks.size(); i++) {
-            Block b = blocks.get(i);
+        if (week.size() != 7) return out;
+        List<TBlock> d = week.get(dow);
+        for (int i = 0; i < d.size(); i++) {
+            TBlock b = d.get(i);
             Slot s = new Slot();
-            s.title = b.title; s.preset = b.preset; s.index = i;
-            s.start = wall(a, off);
-            off += b.len;
-            s.end = wall(a, off);
+            s.title = b.title; s.preset = b.preset; s.note = b.note; s.index = i; s.day = dow;
+            s.start = at(day, b.start);
+            s.end = at(day, b.end > b.start ? b.end : b.end + 1440);
             out.add(s);
         }
         return out;
     }
 
-    /** Clock time a number of minutes after the anchor, counted on the wall clock so daylight saving doesn't shift the day. */
-    private static long wall(long anchor, long offsetMin) {
-        Calendar c = Calendar.getInstance();
-        c.setTimeInMillis(anchor);
-        long total = c.get(Calendar.HOUR_OF_DAY) * 60L + c.get(Calendar.MINUTE) + offsetMin;
-        c.add(Calendar.DAY_OF_MONTH, (int) (total / 1440));
-        long m = total % 1440;
-        c.set(Calendar.HOUR_OF_DAY, (int) (m / 60));
-        c.set(Calendar.MINUTE, (int) (m % 60));
-        return c.getTimeInMillis();
+    /** Today's blocks. */
+    public List<Slot> slots(long now) { return slotsOfDay(now, 0); }
+
+    private List<Slot> around(long now) {
+        List<Slot> all = new ArrayList<>();
+        all.addAll(slotsOfDay(now, -1));
+        all.addAll(slotsOfDay(now, 0));
+        all.addAll(slotsOfDay(now, 1));
+        return all;
     }
 
     public Slot current(long now) {
-        List<Slot> all = slots(now);
-        for (Slot s : all) if (now >= s.start && now < s.end) return s;
+        List<Slot> all = around(now);
+        Slot best = null;
+        for (Slot s : all) if (now >= s.start && now < s.end && (best == null || s.start > best.start)) best = s;
+        if (best != null) return best;
         Slot open = new Slot();
         open.title = "Open time";
         open.preset = "normal";
+        open.note = "Nothing is planned right now.";
         open.index = -1;
-        long a = anchor(now);
-        long dayEnd = all.isEmpty() ? a : all.get(all.size() - 1).end;
-        open.start = Math.max(dayEnd, a);
-        // Open time lasts until the next usual wake time.
-        Calendar c = Calendar.getInstance();
-        c.setTimeInMillis(now);
-        c.set(Calendar.HOUR_OF_DAY, defaultWake / 60);
-        c.set(Calendar.MINUTE, defaultWake % 60);
-        c.set(Calendar.SECOND, 0);
-        c.set(Calendar.MILLISECOND, 0);
-        if (c.getTimeInMillis() <= now) c.add(Calendar.DAY_OF_MONTH, 1);
-        long next = c.getTimeInMillis();
-        open.end = next;
-        if (open.start > now) open.start = now;
+        long prevEnd = now, nextStart = now + 24 * HOUR;
+        for (Slot s : all) {
+            if (s.end <= now && (prevEnd == now || s.end > prevEnd)) prevEnd = s.end;
+            if (s.start > now && s.start < nextStart) nextStart = s.start;
+        }
+        open.start = prevEnd < now ? prevEnd : now;
+        open.end = nextStart;
         return open;
     }
 
     public List<Slot> upcoming(long now, int max) {
         List<Slot> out = new ArrayList<>();
-        for (Slot s : slots(now)) {
+        List<Slot> all = around(now);
+        java.util.Collections.sort(all, new java.util.Comparator<Slot>() {
+            @Override public int compare(Slot a, Slot b) { return Long.compare(a.start, b.start); }
+        });
+        for (Slot s : all) {
             if (s.start > now) out.add(s);
             if (out.size() >= max) break;
         }
         return out;
     }
 
-    /** Next time Free time starts today, or 0. */
+    /** When Free time next starts (today or tomorrow), or 0. */
     public long nextFree(long now) {
-        for (Slot s : slots(now)) if ("free".equals(s.preset) && s.end > now) return Math.max(s.start, now);
-        return 0;
+        for (Slot s : upcoming(now, 60)) if ("free".equals(s.preset)) return s.start;
+        Slot c = current(now);
+        return "free".equals(c.preset) ? now : 0;
     }
 
     public Preset currentPreset(long now) {
@@ -403,6 +465,7 @@ public final class Store {
             return d;
         }
         if ("god".equals(p.id) && Apps.isRejoiceify(c, pkg)) { d.mode = ALLOW; return d; }
+        if ("strict".equals(p.id) && Apps.isGuitar(c, pkg)) { d.mode = ALLOW; return d; }
         Integer m = p.modes.get(pkg);
         d.mode = m != null ? m : p.defaultMode;
         if (d.mode == REASON) {

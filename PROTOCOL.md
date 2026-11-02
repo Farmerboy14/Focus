@@ -32,20 +32,25 @@ ntfy.sh relay. ntfy only ever sees ciphertext. Both devices must share a pairing
 | `bible` | `book` (0-based, KJV order, 0 = Genesis … 65 = Revelation), `chapter` (1-based) | Open the Bible at that chapter. |
 | `note` | `text` | Show it as a notice. |
 
-`sched`:
+`sched` (version 2, a week of clock-time blocks):
 ```json
 {
-  "blocks": [{"title": "Time with God", "preset": "god", "len": 30}, ...],
-  "defaultWake": 360,
-  "wakeAt": 1793520000000,
-  "prevWakeAt": 0,
+  "v": 2,
+  "days": {
+    "sun": [{"start": "07:00", "end": "07:15", "title": "Wake up and get light", "preset": "strict", "note": "Water, step outside."}, ...],
+    "mon": [...], "tue": [...], "wed": [...], "thu": [...], "fri": [...], "sat": [...]
+  },
   "names": {"god": "Time with God", "strict": "Strict", "work": "Work", "normal": "Normal", "free": "Free time"},
   "editedAt": 1793520000000
 }
 ```
+- The starting week is `shared/week.json` in this repo. Both apps ship it as their default.
 - Preset ids are fixed: `god`, `strict`, `work`, `normal`, `free`.
-- Blocks run back to back from the day's anchor: `wakeAt` if it was tapped within the length of the day
-  (and no more than 6 h before today's usual wake time), otherwise the usual wake time (`defaultWake`,
-  minutes after midnight). Offsets are counted on the wall clock so daylight saving doesn't shift the day.
-  After the last block it's open time (`normal`) until the next usual wake time.
+- `start`/`end` are 24-hour local wall-clock times. If `end` is not after `start`, the block runs past midnight
+  into the next day (Sleep, 22:30 → 06:30).
+- What's on now: lay out yesterday's, today's and tomorrow's blocks on the wall clock (local time zone, so daylight
+  saving never shifts them) and take the block with start ≤ now < end; if two match, the later start wins.
+  If none matches, it's open time (`normal`, title "Open time") until the next block starts.
+- `note` is the "what to do" line shown under the block title.
+- A receiver ignores a `state` whose `sched.v` is not 2 (older phones/PCs send the old one-day format).
 - What each preset allows is per device (Android apps vs Windows programs and websites) and does not sync.

@@ -172,16 +172,8 @@ public final class Sync {
     public static JSONObject sched(Context c) throws Exception {
         Store s = Store.get(c);
         JSONObject sc = new JSONObject();
-        JSONArray bl = new JSONArray();
-        for (Store.Block b : s.blocks) {
-            JSONObject j = new JSONObject();
-            j.put("title", b.title); j.put("preset", b.preset); j.put("len", b.len);
-            bl.put(j);
-        }
-        sc.put("blocks", bl);
-        sc.put("defaultWake", s.defaultWake);
-        sc.put("wakeAt", s.wakeAt);
-        sc.put("prevWakeAt", s.prevWakeAt);
+        sc.put("v", 2);
+        sc.put("days", s.writeWeek());
         JSONObject names = new JSONObject();
         for (String id : Store.PRESET_IDS) names.put(id, s.presetName(id));
         sc.put("names", names);

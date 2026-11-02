@@ -1,6 +1,6 @@
 {
-  "code": 9,
-  "name": "0.9",
-  "notes": "Connects to Focus on your PC: shared day, clipboard, links and Bible.",
+  "code": 10,
+  "name": "1.0",
+  "notes": "Your new weekly schedule, with what to do in each block.",
   "apk": "https://raw.githubusercontent.com/Farmerboy14/focus/main/release/Focus.apk"
 }

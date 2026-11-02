@@ -26,7 +26,7 @@ public class HomeActivity extends Activity {
     private final Handler h = new Handler(Looper.getMainLooper());
     private SkyView sky;
     private DialView dial;
-    private TextView clock, pill, big, sub, title, appsLabel;
+    private TextView clock, pill, big, sub, title, appsLabel, noteView;
     private LinearLayout upcomingRow, banner, updBanner;
     private TextView updText;
     private FlowLayout apps;
@@ -92,7 +92,7 @@ public class HomeActivity extends Activity {
         col.addView(updBanner, Ui.lp(Ui.MATCH, Ui.WRAP, Ui.dp(this, 10)));
 
         int sw = getResources().getDisplayMetrics().widthPixels;
-        int dialSize = Math.min(sw - Ui.dp(this, 40), Ui.dp(this, 330));
+        int dialSize = Math.min(Math.min(sw - Ui.dp(this, 40), Ui.dp(this, 320)), (int) (getResources().getDisplayMetrics().heightPixels * 0.36f));
         FrameLayout dialFrame = new FrameLayout(this);
         dial = new DialView(this, false);
         dialFrame.addView(dial, new FrameLayout.LayoutParams(dialSize, dialSize));
@@ -123,6 +123,14 @@ public class HomeActivity extends Activity {
         dlp.gravity = Gravity.CENTER_HORIZONTAL;
         dlp.topMargin = Ui.dp(this, 6);
         col.addView(dialFrame, dlp);
+
+        noteView = Ui.text(this, "", 14, 0xFFC9CCD2, Ui.SORA);
+        noteView.setGravity(Gravity.CENTER);
+        noteView.setLineSpacing(0, 1.3f);
+        noteView.setMaxLines(3);
+        noteView.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        noteView.setPadding(Ui.dp(this, 8), 0, Ui.dp(this, 8), 0);
+        col.addView(noteView, Ui.lp(Ui.MATCH, Ui.WRAP, Ui.dp(this, 8)));
 
         upcomingRow = Ui.row(this);
         col.addView(upcomingRow, Ui.lp(Ui.MATCH, Ui.WRAP, Ui.dp(this, 14)));
@@ -244,6 +252,8 @@ public class HomeActivity extends Activity {
         big.setText(Ui.hm(left));
         sub.setText(("of " + Ui.hm(len) + " left").toUpperCase(Locale.US));
         title.setText(cur.index < 0 ? "Open time · until " + Ui.clock(cur.end) : cur.title);
+        noteView.setText(cur.note);
+        noteView.setVisibility(cur.note == null || cur.note.isEmpty() ? View.GONE : View.VISIBLE);
 
         List<Store.Slot> slots = s.slots(now);
         float[] hours = new float[slots.size()];
@@ -302,42 +312,17 @@ public class HomeActivity extends Activity {
         apps.addView(all);
 
         // the main action
-        boolean asleep = (cur.index < 0 || cur.title.toLowerCase(Locale.US).contains("sleep")) && s.minutesToUsualWake(now) <= 180;
-        boolean morning = !s.dayStartedByTap(now) && now - s.anchor(now) < 3 * Store.HOUR;
         if (god) {
             action.setVisibility(View.VISIBLE);
             action.setText("Open Time with God");
             action.setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) { Ui.open(HomeActivity.this, GodActivity.class); }
             });
-        } else if (now < undoUntil) {
-            action.setVisibility(View.VISIBLE);
-            action.setText("Day started at " + Ui.clock(s.wakeAt) + " · Undo");
-            action.setOnClickListener(new View.OnClickListener() {
-                @Override public void onClick(View v) {
-                    s.undoWake();
-                    undoUntil = 0;
-                    Ui.vibrate(HomeActivity.this);
-                    render(true);
-                }
-            });
-        } else if (asleep || morning) {
-            action.setVisibility(View.VISIBLE);
-            action.setText(asleep ? "I'm awake. Start my day" : "I just woke up. Start from now");
-            action.setOnClickListener(new View.OnClickListener() {
-                @Override public void onClick(View v) {
-                    s.wakeNow();
-                    undoUntil = System.currentTimeMillis() + 10_000;
-                    Ui.vibrate(HomeActivity.this);
-                    render(true);
-                    h.postDelayed(new Runnable() { @Override public void run() { render(false); } }, 10_200);
-                }
-            });
         } else {
             action.setVisibility(View.GONE);
         }
 
-        if (entering) Ui.stagger(upcomingRow, appsLabel, apps, action);
+        if (entering) Ui.stagger(noteView, upcomingRow, appsLabel, apps, action);
     }
 
     private TextView appChip(String label, final String pkg, boolean gold) {
