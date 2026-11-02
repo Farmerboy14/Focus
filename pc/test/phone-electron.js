@@ -105,7 +105,7 @@ app.whenReady().then(async function () {
     ok(st.isVisible() && b.height > 500 && b.width > 280 && b.width < b.height, 'the panel grew into a phone shape: ' + b.width + 'x' + b.height + ' at ' + b.x + ',' + b.y);
     ok(b.x + b.width <= wa.x + wa.width && b.y + b.height <= wa.y + wa.height && b.y >= wa.y, 'and stays on the screen');
     const args = fs.existsSync(argsFile) ? fs.readFileSync(argsFile, 'utf8') : '';
-    ok(/--window-title=Focus phone/.test(args) && /--window-borderless/.test(args) && /--no-audio/.test(args) && /--window-x=\d+/.test(args), 'scrcpy started borderless with the title and size: ' + args.trim());
+    ok(/--window-title=Focus phone/.test(args) && /--window-borderless/.test(args) && /--no-audio/.test(args) && /--window-x=\d+/.test(args) && /--tcpip$/m.test(args), 'scrcpy started borderless, setting up Wi-Fi: ' + args.trim());
     windowUp = true;
     for (let i = 0; i < 30 && !calls.some((c) => c[0] === 'phoneown'); i++) await sleep(100);
     const own = calls.filter((c) => c[0] === 'phoneown').pop();
@@ -161,7 +161,7 @@ app.whenReady().then(async function () {
     windowUp = true;
     await sleep(800);
     lines = fs.readFileSync(argsFile, 'utf8').trim().split('\n');
-    ok(lines.length === 2 && /--tcpip=/.test(lines[0]) && /--select-usb --tcpip$/.test(lines[1]), 'when Wi-Fi is off it sets it up again through the cable');
+    ok(lines.length === 2 && /--tcpip=/.test(lines[0]) && /--tcpip$/.test(lines[1]) && !/--tcpip=/.test(lines[1]), 'when Wi-Fi is off it sets it up again: ' + lines.map((l) => l.replace(/.*--max-size=\d+ ?/, '')).join(' | '));
     ok(phone.isOpen() && calls.filter((c) => c[0] === 'phoneown').length > 0, 'and the mirror still comes up');
     await phone.collapse();
     await sleep(700);

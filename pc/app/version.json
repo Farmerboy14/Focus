@@ -1,6 +1,6 @@
 {
-  "version": 8,
-  "name": "1.5",
+  "version": 9,
+  "name": "1.5.1",
   "minBootstrap": 1,
-  "notes": "The phone panel is borderless and connects over Wi-Fi after you plug the phone in once."
+  "notes": "Phone panel: steadier Wi-Fi setup, and it still mirrors over the cable if Wi-Fi can't be set up."
 }

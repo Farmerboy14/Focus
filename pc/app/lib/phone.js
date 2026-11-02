@@ -141,7 +141,10 @@ function makePhone(o) {
   function makePlan() {
     const st = settings();
     if (st.phoneWifi === false) return ['usb', 'usb'];
-    return st.phoneAddr ? ['wifi', 'setup', 'setup'] : ['setup', 'setup'];
+    // setup: switch whatever phone is connected to Wi-Fi; setupusb: the same, picking the cable when the phone shows up
+    // twice (cable and Wi-Fi); usb: just mirror it, so the panel still works when Wi-Fi can't be set up.
+    const p = ['setup', 'setupusb', 'usb'];
+    return st.phoneAddr ? ['wifi'].concat(p) : p;
   }
 
   function scrcpyArgs(rect, kind) {
@@ -149,7 +152,8 @@ function makePhone(o) {
       '--window-x=' + rect.x, '--window-y=' + rect.y, '--window-width=' + rect.width, '--window-height=' + rect.height,
       '--max-size=' + Math.max(rect.width, rect.height)];
     if (kind === 'wifi') args.push('--tcpip=' + settings().phoneAddr);
-    if (kind === 'setup') args.push('--select-usb', '--tcpip');
+    if (kind === 'setup') args.push('--tcpip');
+    if (kind === 'setupusb') args.push('--select-usb', '--tcpip');
     return args.filter(function (a) { return dropped.indexOf(a.split('=')[0]) < 0; });
   }
 
@@ -168,7 +172,7 @@ function makePhone(o) {
     const exe = await findScrcpy();
     if (state !== 'opening' && state !== 'open') return;
     if (!exe) { status('missing', 'Focus couldn\'t find scrcpy on this PC.'); return; }
-    status('waking', 'Waking your phone…', { detail: kind === 'wifi' ? 'Over Wi-Fi' : kind === 'setup' ? 'Setting up Wi-Fi through the cable' : '' });
+    status('waking', 'Waking your phone…', { detail: kind === 'wifi' ? 'Over Wi-Fi' : kind.indexOf('setup') === 0 ? 'Setting up Wi-Fi' : '' });
     const rect = physical(stage, geo.screen);
     const args = scrcpyArgs(rect, kind);
     let c;
@@ -181,9 +185,12 @@ function makePhone(o) {
     } catch (e) { status('error', 'scrcpy wouldn\'t start: ' + e.message); return; }
     child = c; childPid = c.pid;
     const started = Date.now();
-    const onOut = function (d) {
-      const text = String(d);
-      text.split(/\r?\n/).forEach(function (l) {
+    const bufs = { out: '', err: '' };
+    const onOut = function (which, d, flush) {
+      bufs[which] += String(d);
+      const parts = bufs[which].split(/\r?\n/);
+      bufs[which] = flush ? '' : parts.pop();
+      parts.forEach(function (l) {
         l = l.trim();
         if (!l) return;
         tail.push(l); if (tail.length > 14) tail.shift();
@@ -196,16 +203,17 @@ function makePhone(o) {
         if (m) aspectSeen(Number(m[1]), Number(m[2]));
         // Wi-Fi set up through the cable: remember where the phone is for next time.
         const ip = /Connected to ([0-9]{1,3}(?:\.[0-9]{1,3}){3}:\d+)/i.exec(l) || /Device IP:\s*([0-9]{1,3}(?:\.[0-9]{1,3}){3})/i.exec(l);
-        if (ip && kind === 'setup') {
+        if (ip && kind.indexOf('setup') === 0) {
           const addr = ip[1].indexOf(':') > 0 ? ip[1] : ip[1] + ':5555';
           if (settings().phoneAddr !== addr) { settings().phoneAddr = addr; o.save(); log('phone: Wi-Fi address ' + addr); }
         }
       });
     };
-    c.stdout && c.stdout.on('data', onOut);
-    c.stderr && c.stderr.on('data', onOut);
+    c.stdout && c.stdout.on('data', function (d) { onOut('out', d); });
+    c.stderr && c.stderr.on('data', function (d) { onOut('err', d); });
     c.on('error', function (e) { errText = e.message; });
     c.on('exit', function (code) {
+      onOut('out', '', true); onOut('err', '', true);
       if (child !== c) return;
       child = null; childPid = 0;
       clearInterval(polling); polling = null;
