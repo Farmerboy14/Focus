@@ -121,6 +121,27 @@ function startLink() {
   link.start(model.pair.code);
 }
 
+/**
+ * Rewords notes the user never changed, from res/notes-upgrade.json (e.g. new meal notes). A note is only
+ * replaced when it still reads exactly as before; each upgrade runs once.
+ */
+function upgradeNotes() {
+  try {
+    const up = JSON.parse(fs.readFileSync(res('notes-upgrade.json'), 'utf8'));
+    if (!up || !up.id) return;
+    const mark = path.join(USER_DIR, 'upgraded-' + String(up.id).replace(/[^a-z0-9-]/gi, '') + '.txt');
+    if (fs.existsSync(mark)) return;
+    let n = 0;
+    (up.changes || []).forEach(function (c) {
+      (model.sched.days[c.day] || []).forEach(function (b) {
+        if (b.start === c.start && b.title === c.title && (b.note || '') === (c.from || '')) { b.note = c.to; n++; }
+      });
+    });
+    fs.writeFileSync(mark, new Date().toISOString() + ' changed ' + n + '\r\n');
+    if (n) { log('updated ' + n + ' notes (' + up.id + ')'); schedChanged(); }
+  } catch (e) { log('notes upgrade: ' + e.message); }
+}
+
 // ---------- what the windows see ----------
 
 function snapshot() {
@@ -642,6 +663,7 @@ function init() {
   applyLoginItem();
   ensureShortcut();
   startLink();
+  upgradeNotes();
   watcher.start();
   desktop = makeDesktop({
     electron: electron, watcher: watcher, log: log, baseWeb: baseWeb, uiFile: ui, resFile: res, userDir: USER_DIR,

@@ -1,0 +1,103 @@
+{
+ "id": "meals-2026-11-02",
+ "changes": [
+  {
+   "day": "mon",
+   "start": "07:15",
+   "title": "Breakfast and get ready",
+   "from": "Breakfast: Overnight oats. Get dressed and grab your packed lunch.",
+   "to": "Breakfast: honey nut oats (the jar you made Saturday): eat cold or microwave 2 min, then honey, walnuts and dried cherries. Get dressed and grab your packed lunch."
+  },
+  {
+   "day": "mon",
+   "start": "12:45",
+   "title": "Lunch",
+   "from": "Lunch: Chicken wrap: tortilla, chicken, spinach, cheese, salsa or hummus. Eat away from the screen.",
+   "to": "Lunch: smoked turkey and baby Swiss on split-top wheat, frozen mixed vegetables (microwave 2-3 min with butter), baby dill pickles. Eat away from the screen."
+  },
+  {
+   "day": "tue",
+   "start": "07:15",
+   "title": "Breakfast and get ready",
+   "from": "Breakfast: 2 hard-boiled eggs, a banana and yogurt. Get dressed and grab your packed lunch.",
+   "to": "Breakfast: plain Greek yogurt with Swiss muesli, honey, dried strawberries and pumpkin seeds. Get dressed and grab your packed lunch."
+  },
+  {
+   "day": "tue",
+   "start": "12:45",
+   "title": "Lunch",
+   "from": "Lunch: Chicken rice bowl: rice cup, chicken, black beans, broccoli, salsa, cheese. Eat away from the screen.",
+   "to": "Lunch: chicken rice bowl from Saturday: brown rice, rotisserie chicken, vegetables. Microwave 2.5 min, then salsa and Mexican cheese. Eat away from the screen."
+  },
+  {
+   "day": "wed",
+   "start": "07:15",
+   "title": "Breakfast and get ready",
+   "from": "Breakfast: Overnight oats. Get dressed and grab your packed lunch.",
+   "to": "Breakfast: honey nut oats (the jar you made Saturday): eat cold or microwave 2 min, then honey, walnuts and dried cherries. Get dressed and grab your packed lunch."
+  },
+  {
+   "day": "wed",
+   "start": "12:45",
+   "title": "Lunch",
+   "from": "Lunch: Big salad: spinach, chicken, tomatoes, black beans, cheese, salsa. Eat away from the screen.",
+   "to": "Lunch: Sadler's brisket with Show-Me BBQ sauce, Bob Evans mashed potatoes and peas. Microwave each about 2 min. Eat away from the screen."
+  },
+  {
+   "day": "thu",
+   "start": "07:15",
+   "title": "Breakfast and get ready",
+   "from": "Breakfast: 2 hard-boiled eggs, a banana and yogurt. Get dressed and grab your packed lunch.",
+   "to": "Breakfast: everything bagel with Canadian bacon and colby, microwave 40 sec, plus a Chobani protein yogurt. Get dressed and grab your packed lunch."
+  },
+  {
+   "day": "thu",
+   "start": "12:45",
+   "title": "Lunch",
+   "from": "Lunch: Chicken wrap: tortilla, chicken, spinach, cheese, salsa or hummus. Eat away from the screen.",
+   "to": "Lunch: Rebecca's tomato basil soup (microwave 2-3 min) and a ham and provolone sandwich. Eat away from the screen."
+  },
+  {
+   "day": "fri",
+   "start": "07:15",
+   "title": "Breakfast and get ready",
+   "from": "Breakfast: Overnight oats. Get dressed and grab your packed lunch.",
+   "to": "Breakfast: honey nut oats (the jar you made Saturday): eat cold or microwave 2 min, then honey, walnuts and dried cherries. Get dressed and grab your packed lunch."
+  },
+  {
+   "day": "fri",
+   "start": "12:45",
+   "title": "Lunch",
+   "from": "Lunch: Chicken rice bowl: rice cup, chicken, black beans, broccoli, salsa, cheese. Eat away from the screen.",
+   "to": "Lunch: chicken rice bowl from Saturday: brown rice, rotisserie chicken, vegetables. Microwave 2.5 min, then salsa and Mexican cheese. Eat away from the screen."
+  },
+  {
+   "day": "sat",
+   "start": "07:15",
+   "title": "Breakfast and get ready",
+   "from": "Breakfast: 2 hard-boiled eggs, a banana and yogurt. Get dressed and grab your packed lunch.",
+   "to": "Breakfast: plain Greek yogurt with Swiss muesli, honey, dried strawberries and pumpkin seeds. Get dressed and grab your packed lunch."
+  },
+  {
+   "day": "sat",
+   "start": "12:30",
+   "title": "Lunch",
+   "from": "Lunch: Big salad: spinach, chicken, tomatoes, black beans, cheese, salsa. Eat sitting down, even on a busy day.",
+   "to": "Lunch: Chef Quik chicken strips (1.5 min), mashed potatoes and peas (2 min), BBQ sauce to dip. Eat sitting down, even on a busy day."
+  },
+  {
+   "day": "sat",
+   "start": "17:15",
+   "title": "Shop the grocery list",
+   "from": "Next week's meal-plan items: chickens, eggs, yogurt, oats, berries, bananas, apples, tortillas, rice cups, broccoli, beans, spinach, tomatoes, carrots, hummus, salsa, cheese.",
+   "to": "Pull next week's food from the store (list in the meal plan spreadsheet): Greek yogurt, milk, deli turkey, ham, rotisserie chicken, cheeses, bread, bagels, frozen vegetables, peas, brisket, chicken strips, oats, muesli, rice, honey, nuts, dried fruit."
+  },
+  {
+   "day": "sat",
+   "start": "18:30",
+   "title": "Food prep for the week",
+   "from": "Boil 10 eggs, pull chicken #1 into 3 containers, make 2 jars of overnight oats, bag the carrots.",
+   "to": "Cook 1 cup brown rice and pack 2 chicken rice bowls (Tue, Fri). Make 3 jars of overnight oats (Mon, Wed, Fri). Move bread and bagels to the fridge. Bag 4 oz brisket and 4 oz chicken strips."
+  }
+ ]
+}

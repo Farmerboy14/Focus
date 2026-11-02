@@ -72,6 +72,52 @@ public final class Store {
         sp = c.getSharedPreferences("focus", Context.MODE_PRIVATE);
         load();
         if (migrated) { editedAt = System.currentTimeMillis(); save(); }
+        upgradeNotes();
+    }
+
+    /**
+     * Rewords notes the user never changed, from assets/notes-upgrade.json (e.g. new meal notes).
+     * A note is only replaced when it still reads exactly as before; each upgrade runs once.
+     */
+    private void upgradeNotes() {
+        try {
+            JSONObject up = new JSONObject(readAsset("notes-upgrade.json"));
+            String id = up.optString("id", "");
+            if (id.isEmpty() || sp.getBoolean("upgraded:" + id, false)) return;
+            JSONArray ch = up.getJSONArray("changes");
+            boolean any = false;
+            for (int i = 0; i < ch.length(); i++) {
+                JSONObject c = ch.getJSONObject(i);
+                int day = java.util.Arrays.asList(DAY_KEYS).indexOf(c.optString("day"));
+                if (day < 0 || day >= week.size()) continue;
+                int start = mins(c.optString("start"));
+                for (TBlock b : week.get(day)) {
+                    if (b.start == start && b.title.equals(c.optString("title")) && b.note.equals(c.optString("from"))) {
+                        b.note = c.optString("to");
+                        any = true;
+                    }
+                }
+            }
+            sp.edit().putBoolean("upgraded:" + id, true).apply();
+            if (any) {
+                editedAt = System.currentTimeMillis();
+                save();
+                // After the constructor returns, so Sync can use Store.get.
+                new android.os.Handler(android.os.Looper.getMainLooper()).post(new Runnable() {
+                    @Override public void run() { Sync.pushState(appCtx); }
+                });
+            }
+        } catch (Exception ignored) { }
+    }
+
+    private String readAsset(String name) throws java.io.IOException {
+        java.io.InputStream in = appCtx.getAssets().open(name);
+        java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+        byte[] buf = new byte[8192];
+        int n;
+        while ((n = in.read(buf)) > 0) bo.write(buf, 0, n);
+        in.close();
+        return new String(bo.toByteArray(), "UTF-8");
     }
 
     public SharedPreferences prefs() { return sp; }

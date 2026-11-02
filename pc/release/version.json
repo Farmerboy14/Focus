@@ -1,6 +1,6 @@
 {
-  "version": 10,
-  "name": "1.5.2",
+  "version": 11,
+  "name": "1.6",
   "minBootstrap": 1,
-  "notes": "Phone panel shows what scrcpy said when it can't connect."
+  "notes": "Meals now come from what the store stocks: new breakfast and lunch notes in your week."
 }

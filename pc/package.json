@@ -13,7 +13,8 @@
     "screens": "node test/screens.js",
     "package": "bash build-win.sh",
     "test:desktop": "xvfb-run -a electron --no-sandbox --disable-gpu test/desktop-electron.js",
-    "test:phone": "xvfb-run -a electron --no-sandbox --disable-gpu test/phone-electron.js"
+    "test:phone": "xvfb-run -a electron --no-sandbox --disable-gpu test/phone-electron.js",
+    "test:notes": "xvfb-run -a node test/notes-upgrade-e2e.js"
   },
   "devDependencies": {
     "electron": "45.2.1",
