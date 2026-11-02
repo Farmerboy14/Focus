@@ -164,7 +164,11 @@ function makePhone(o) {
         l = l.trim();
         if (!l) return;
         tail.push(l); if (tail.length > 14) tail.shift();
-        if (/^ERROR|error:|unrecognized option|Could not|not found|unauthorized/i.test(l)) errText = l.replace(/^ERROR:\s*/, '');
+        if (/^ERROR|error:|unrecognized option|Could not|not found|unauthorized/i.test(l)) {
+          const e = l.replace(/^ERROR:\s*/, '');
+          // Keep the specific reason; "Server connection failed" only says that something above went wrong.
+          if (!(errText && /Server connection failed/i.test(e))) errText = e;
+        }
         const m = /Texture:\s*(\d+)x(\d+)/.exec(l);
         if (m) aspectSeen(Number(m[1]), Number(m[2]));
       });
@@ -195,7 +199,7 @@ function makePhone(o) {
         setTimeout(function () { if (state === 'opening' || state === 'open') startScrcpy(); }, 1500);
         return;
       }
-      if (state === 'opening' || state === 'open') status('error', 'Couldn\'t reach your phone.', { detail: errText || 'Is it plugged in, with USB debugging on?' });
+      if (state === 'opening' || state === 'open') status('error', 'Couldn\'t reach your phone.', { detail: friendly(errText) });
     });
     clearInterval(polling);
     polling = setInterval(async function () {
@@ -211,6 +215,15 @@ function makePhone(o) {
       o.watcher.request('phonefront', [hwnd], 2000);
       log('phone: mirror is up');
     }, 150);
+  }
+
+  /** scrcpy's errors, in plain words. */
+  function friendly(e) {
+    if (!e) return 'Is it plugged in, with USB debugging on?';
+    if (/Could not find any ADB device/i.test(e)) return 'Your phone isn\'t connected. Plug it in with the USB cable, and if the phone asks, allow USB debugging.';
+    if (/unauthorized/i.test(e)) return 'Your phone is asking to allow USB debugging. Tap Allow on the phone, then Try again.';
+    if (/more than one device/i.test(e)) return 'More than one phone or emulator is connected. Unplug the extra one, then Try again.';
+    return e;
   }
 
   async function place() {

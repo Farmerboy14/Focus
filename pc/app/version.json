@@ -1,6 +1,6 @@
 {
-  "version": 6,
-  "name": "1.4.1",
+  "version": 7,
+  "name": "1.4.2",
   "minBootstrap": 1,
-  "notes": "Fixes the Windows helper not starting in 1.4 (program blocking and the desktop layer)."
+  "notes": "Plainer messages when your phone isn't connected for the phone panel."
 }
