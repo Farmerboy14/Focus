@@ -196,8 +196,9 @@ function makePhone(o) {
         tail.push(l); if (tail.length > 14) tail.shift();
         if (/^ERROR|error:|unrecognized option|Could not|not found|unauthorized|failed to connect|cannot connect/i.test(l)) {
           const e = l.replace(/^ERROR:\s*/, '');
-          // Keep the specific reason; "Server connection failed" only says that something above went wrong.
-          if (!(errText && /Server connection failed/i.test(e))) errText = e;
+          // Keep the specific reason; these generic lines only say that something above went wrong.
+          const generic = /Server connection failed|Check the FAQ|FAQ\.md/i.test(e);
+          if (!(errText && generic)) errText = e;
         }
         const m = /Texture:\s*(\d+)x(\d+)/.exec(l);
         if (m) aspectSeen(Number(m[1]), Number(m[2]));
@@ -237,7 +238,7 @@ function makePhone(o) {
         setTimeout(function () { if (state === 'opening' || state === 'open') attempt(); }, 1200);
         return;
       }
-      status('error', 'Couldn\'t reach your phone.', { detail: friendly(errText) });
+      status('error', 'Couldn\'t reach your phone.', { detail: friendly(errText), log: tail.slice(-6).join('\n') });
     });
     clearInterval(polling);
     polling = setInterval(async function () {

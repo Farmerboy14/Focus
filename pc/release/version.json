@@ -1,6 +1,6 @@
 {
-  "version": 9,
-  "name": "1.5.1",
+  "version": 10,
+  "name": "1.5.2",
   "minBootstrap": 1,
-  "notes": "Phone panel: steadier Wi-Fi setup, and it still mirrors over the cable if Wi-Fi can't be set up."
+  "notes": "Phone panel shows what scrcpy said when it can't connect."
 }

@@ -68,6 +68,8 @@
     b.classList.toggle('hidden', s.kind !== 'missing' && s.kind !== 'error');
     b.textContent = s.kind === 'missing' ? 'Find scrcpy.exe' : 'Try again';
     b.dataset.kind = s.kind;
+    $('msgLog').textContent = s.log || '';
+    $('msgLog').classList.toggle('hidden', !(s.kind === 'error' && s.log));
     if (s.kind === 'missing') $('msgD').textContent = 'scrcpy shows your phone on the PC. Point Focus to scrcpy.exe once and it\'ll remember.';
   }
 
