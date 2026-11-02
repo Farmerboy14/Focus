@@ -108,7 +108,7 @@ class Link extends EventEmitter {
     if (!ev || ev.event !== 'message') return;
     if (ev.id) this.setLastId(String(ev.id));
     let env;
-    try { env = JSON.parse(fc.decrypt(this.key, ev.message || '')); } catch (e) { return; } // not ours
+    try { env = JSON.parse(fc.open(this.key, ev.message || '')); } catch (e) { return; } // not ours
     this.handleEnvelope(env);
   }
 
@@ -134,12 +134,9 @@ class Link extends EventEmitter {
   async send(type, fields) {
     if (!this.key) return false;
     const env = this.envelope(type, fields || {});
-    let plain = JSON.stringify(env);
-    if (type === 'clip' && Buffer.byteLength(plain, 'utf8') > MAX_PLAIN) {
-      plain = JSON.stringify(fitText(env, 'text'));
-    }
-    if (Buffer.byteLength(plain, 'utf8') > MAX_PLAIN) { this.log('link: ' + type + ' too big to send'); return false; }
-    const wire = fc.encrypt(this.key, plain);
+    let wire = fc.seal(this.key, JSON.stringify(env), MAX_PLAIN);
+    if (!wire && type === 'clip') wire = fc.seal(this.key, JSON.stringify(fitText(env, 'text')), MAX_PLAIN);
+    if (!wire) { this.log('link: ' + type + ' too big to send'); return false; }
     try {
       const res = await this.fetch(RELAY + this.topic, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: wire });
       return res.ok;

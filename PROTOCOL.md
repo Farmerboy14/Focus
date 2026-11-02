@@ -12,10 +12,13 @@ ntfy.sh relay. ntfy only ever sees ciphertext. Both devices must share a pairing
 ## Wire format
 - Plaintext is a UTF-8 JSON envelope:
   `{"v":1,"from":"phone"|"pc","id":"<12 hex>","at":<epoch ms>,"t":"<type>", ...type fields}`
+- Compress before encrypting: the bytes that get encrypted are `0x01` followed by the zlib (RFC 1950)
+  deflate of the UTF-8 JSON. On receipt, if the decrypted bytes start with `0x01`, inflate the rest;
+  otherwise read them as plain UTF-8 JSON. A whole week compresses to about 2.4 KB.
 - Encrypt with AES-256-GCM, a random 12-byte IV, 128-bit tag.
   Wire string = base64 (standard, no line breaks) of `IV || ciphertext || tag`
   (this is exactly what Java's `Cipher.doFinal` output appended to the IV gives you).
-- Keep the wire string under 4000 bytes (ntfy's limit): plaintext under ~2900 bytes.
+- Keep the wire string under 4000 bytes (ntfy's limit): the compressed bytes under ~2900. Don't send anything bigger.
 - Publish: `POST https://ntfy.sh/<topic>`, body = wire string, `Content-Type: text/plain`.
 - Subscribe: `GET https://ntfy.sh/<topic>/json?since=<last message id, or 10m on first start>`,
   a stream of newline-delimited JSON. Use lines with `"event":"message"`; the wire string is in `"message"`.

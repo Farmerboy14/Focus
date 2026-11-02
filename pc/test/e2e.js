@@ -63,7 +63,7 @@ async function launch(home, extraEnv) {
         const line = buf.slice(0, i); buf = buf.slice(i + 1);
         const ev = JSON.parse(line);
         if (ev.event !== 'message') continue;
-        try { const env = JSON.parse(fc.decrypt(KEY, ev.message)); if (env.from === 'pc') fromPc.push(env); } catch (e) { }
+        try { const env = JSON.parse(fc.open(KEY, ev.message)); if (env.from === 'pc') fromPc.push(env); } catch (e) { }
       }
     });
   });

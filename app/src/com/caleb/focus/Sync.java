@@ -84,7 +84,7 @@ public final class Sync {
         rnd.nextBytes(iv);
         Cipher c = Cipher.getInstance("AES/GCM/NoPadding");
         c.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(sha("focus-key:" + code), "AES"), new GCMParameterSpec(128, iv));
-        byte[] ct = c.doFinal(plain.getBytes(StandardCharsets.UTF_8));
+        byte[] ct = c.doFinal(pack(plain));
         byte[] out = new byte[iv.length + ct.length];
         System.arraycopy(iv, 0, out, 0, iv.length);
         System.arraycopy(ct, 0, out, iv.length, ct.length);
@@ -95,7 +95,35 @@ public final class Sync {
         byte[] all = Base64.decode(wire.trim(), Base64.DEFAULT);
         Cipher c = Cipher.getInstance("AES/GCM/NoPadding");
         c.init(Cipher.DECRYPT_MODE, new SecretKeySpec(sha("focus-key:" + code), "AES"), new GCMParameterSpec(128, all, 0, 12));
-        return new String(c.doFinal(all, 12, all.length - 12), StandardCharsets.UTF_8);
+        return unpack(c.doFinal(all, 12, all.length - 12));
+    }
+
+    /** Envelopes are zlib-compressed before encryption, marked by a leading 0x01 byte (PROTOCOL.md). */
+    static byte[] pack(String json) {
+        java.util.zip.Deflater d = new java.util.zip.Deflater(9);
+        d.setInput(json.getBytes(StandardCharsets.UTF_8));
+        d.finish();
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        out.write(1);
+        byte[] buf = new byte[4096];
+        while (!d.finished()) { int n = d.deflate(buf); out.write(buf, 0, n); }
+        d.end();
+        return out.toByteArray();
+    }
+
+    static String unpack(byte[] b) throws Exception {
+        if (b.length == 0 || b[0] != 1) return new String(b, StandardCharsets.UTF_8);
+        java.util.zip.Inflater in = new java.util.zip.Inflater();
+        in.setInput(b, 1, b.length - 1);
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        byte[] buf = new byte[8192];
+        while (!in.finished()) {
+            int n = in.inflate(buf);
+            if (n == 0 && (in.needsInput() || in.needsDictionary())) break;
+            out.write(buf, 0, n);
+        }
+        in.end();
+        return new String(out.toByteArray(), StandardCharsets.UTF_8);
     }
 
     // ---------- sending ----------
@@ -126,6 +154,10 @@ public final class Sync {
                 boolean ok = false;
                 try {
                     String wire = encrypt(code, env.toString());
+                    if (wire.length() > 3990) {
+                        if (tellUser) toast(c, "That's too long to send. Try a shorter piece.");
+                        return;
+                    }
                     HttpURLConnection con = (HttpURLConnection) new URL(RELAY + topic(code)).openConnection();
                     con.setRequestMethod("POST");
                     con.setDoOutput(true);

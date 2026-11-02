@@ -1,6 +1,6 @@
 {
-  "version": 2,
-  "name": "1.1",
+  "version": 3,
+  "name": "1.2",
   "minBootstrap": 1,
-  "notes": "Your new weekly schedule"
+  "notes": "Your weekly schedule now syncs with your phone."
 }

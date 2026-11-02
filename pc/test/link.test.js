@@ -51,11 +51,11 @@ test('subscribes, says hello, takes phone messages once, ignores the rest', asyn
   assert.deepStrictEqual(got.map((e) => e.t), ['state', 'clip']);
   assert.strictEqual(got[1].text, 'hi from phone');
   assert.strictEqual(lastId, 'm6');
-  const hello = posts.find((p) => JSON.parse(fc.decrypt(KEY, p.body)).t === 'hello');
+  const hello = posts.find((p) => JSON.parse(fc.open(KEY, p.body)).t === 'hello');
   assert.ok(hello, 'sent hello on connect');
   assert.strictEqual(hello.url, 'https://ntfy.sh/' + TOPIC);
   assert.strictEqual(hello.type, 'text/plain');
-  const env = JSON.parse(fc.decrypt(KEY, hello.body));
+  const env = JSON.parse(fc.open(KEY, hello.body));
   assert.strictEqual(env.from, 'pc');
   assert.strictEqual(env.v, 1);
   assert.ok(/^[0-9a-f]{12}$/.test(env.id));
@@ -76,9 +76,9 @@ test('big clipboard text is cut to fit the relay limit', async () => {
   link.key = KEY; link.topic = TOPIC;
   assert.ok(await link.send('clip', { text: '✓'.repeat(2000) }));
   assert.ok(body.length < 4000, 'wire under 4000 bytes, was ' + body.length);
-  const env = JSON.parse(fc.decrypt(KEY, body));
+  const env = JSON.parse(fc.open(KEY, body));
+  // Compression lets repetitive text through whole; it is still capped at 2000 characters.
   assert.ok(env.text.length > 500 && env.text.length <= 2000);
-  assert.ok(Buffer.byteLength(JSON.stringify(env)) <= MAX_PLAIN);
   const plain = fitText({ text: 'a'.repeat(5000) }, 'text');
   assert.strictEqual(plain.text.length, 2000);
 });
@@ -93,15 +93,20 @@ test('state carries {v:2, days, names, editedAt}, and a small week fits', async 
     { v: 2, days: { sun: [], mon: [], tue: [], wed: [], thu: [], fri: [], sat: [] }, names: S.DEFAULT_NAMES, editedAt: 0 });
   assert.ok(await link.send('state', { sched: S.wire(sc) }));
   assert.ok(body.length < 4000, 'wire was ' + body.length);
-  const env = JSON.parse(fc.decrypt(KEY, body));
+  const env = JSON.parse(fc.open(KEY, body));
   assert.deepStrictEqual(Object.keys(env.sched), ['v', 'days', 'names', 'editedAt']);
   assert.strictEqual(env.sched.v, 2);
   assert.strictEqual(env.sched.days.mon[1].end, '06:30');
   assert.ok(!('wakeAt' in env.sched) && !('prevWakeAt' in env.sched) && !('defaultWake' in env.sched) && !('blocks' in env.sched));
-  // The full default week is far over ntfy's limit (PROTOCOL.md): it is refused and logged, never cut.
+  // The full default week (about 23 KB of JSON) fits once compressed (PROTOCOL.md).
   body = null;
-  assert.strictEqual(await link.send('state', { sched: S.wire(S.defaultSched()) }), false);
-  assert.strictEqual(body, null);
+  const full = S.wire(S.defaultSched());
+  assert.ok(await link.send('state', { sched: full }));
+  assert.ok(body && body.length < 4000, 'full week wire was ' + (body && body.length));
+  assert.deepStrictEqual(JSON.parse(fc.open(KEY, body)).sched.days, full.days);
+  // Something that still can't fit is refused and logged, never cut.
+  const huge = { v: 2, days: { mon: [] }, names: {}, editedAt: 1, junk: require('crypto').randomBytes(6000).toString('hex') };
+  assert.strictEqual(await link.send('state', { sched: huge }), false);
   assert.ok(logs.some((m) => /state too big/.test(m)));
 });
 
