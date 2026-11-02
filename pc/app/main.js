@@ -60,7 +60,7 @@ function notify(title, body) {
   try { if (tray && process.platform === 'win32') tray.displayBalloon({ title: title, content: body || ' ', iconType: 'none' }); } catch (e) { }
 }
 
-// ---------- the shared day ----------
+// ---------- the shared week ----------
 
 function schedChanged() {
   model.sched.editedAt = now();
@@ -72,12 +72,12 @@ function schedChanged() {
 
 function pushState() {
   if (!link || !link.key) return;
-  link.send('state', { sched: model.sched }).then(function (ok) { if (!ok) log('state push failed'); });
+  link.send('state', { sched: S.wire(model.sched) }).then(function (ok) { if (!ok) log('state push failed'); });
 }
 
-/** Takes the phone's day if it's newer. Never sends anything back. */
+/** Takes the phone's week if it's version 2 and newer. Never sends anything back. */
 function applyRemote(sc) {
-  if (!sc || typeof sc !== 'object') return false;
+  if (!S.isV2(sc)) { if (sc) log('ignored a state in the old one-day format'); return false; }
   const at = Number(sc.editedAt) || 0;
   if (at <= (model.sched.editedAt || 0)) return false;
   const next = S.normalize(sc, model.sched);
@@ -92,7 +92,7 @@ function onPhoneMessage(env) {
   try {
     const t = env.t;
     if (t === 'hello') pushState();
-    else if (t === 'state') { if (applyRemote(env.sched)) notify('Focus', 'Your day was updated from your phone.'); }
+    else if (t === 'state') { if (applyRemote(env.sched)) notify('Focus', 'Your week was updated from your phone.'); }
     else if (t === 'clip') {
       const text = String(env.text || '').slice(0, 2000);
       clipboard.writeText(text);
@@ -129,11 +129,9 @@ function snapshot() {
     now: t,
     sched: sc,
     cur: cur,
+    today: S.dayOf(t),
     slots: S.slots(sc, t),
     upcoming: S.upcoming(sc, t, 3),
-    anchor: S.anchor(sc, t),
-    startedByTap: S.dayStartedByTap(sc, t),
-    minutesToUsualWake: S.minutesToUsualWake(sc, t),
     nextFree: S.nextFree(sc, t),
     pc: model.pc,
     ytUsedMin: Math.floor(P.ytUsedSec(model, t) / 60),
@@ -266,7 +264,7 @@ function showNotNow(info) {
   const data = {
     kind: info.kind, exe: info.exe, hwnd: info.hwnd, label: labelFor(info.exe),
     presetId: cur.preset, presetName: model.sched.names[cur.preset] || cur.preset,
-    blockTitle: cur.index < 0 ? 'Open time' : cur.title, blockEnd: S.clock(cur.end),
+    blockTitle: cur.index < 0 ? 'Open time' : cur.title, blockNote: cur.note || '', blockEnd: S.clock(cur.end),
     nextFree: free ? S.clock(free) : '', ytLimit: model.pc.ytLimit
   };
   notnowShowing = { exe: info.exe, hwnd: info.hwnd, at: t };
@@ -322,7 +320,7 @@ function tick() {
   // Passes that ran out, a block that changed, a pause that ended: re-check what's in front.
   evaluate();
   const cur = S.current(model.sched, t);
-  const key = cur.title + '|' + cur.start + '|' + (model.pausedUntil > t ? 'p' : '');
+  const key = cur.title + '|' + cur.start + '|' + cur.end + '|' + (model.pausedUntil > t ? 'p' : '');
   if (key !== lastBlockKey) {
     lastBlockKey = key;
     broadcast();
@@ -488,13 +486,12 @@ function handle(name, fn) {
 function setupIpc() {
   handle('state:get', function () { return snapshot(); });
   handle('sched:set', function (a) {
-    const next = S.normalize(Object.assign({}, model.sched, { blocks: a.blocks || model.sched.blocks, defaultWake: a.defaultWake == null ? model.sched.defaultWake : a.defaultWake, names: a.names || model.sched.names }), model.sched);
-    model.sched = next;
+    a = a || {};
+    const days = Object.assign({}, model.sched.days, a.days && typeof a.days === 'object' ? a.days : {});
+    model.sched = S.normalize({ v: 2, days: days, names: a.names || model.sched.names, editedAt: model.sched.editedAt }, model.sched);
     schedChanged();
     return snapshot();
   });
-  handle('wake:now', function () { S.wakeNow(model.sched, now()); schedChanged(); return snapshot(); });
-  handle('wake:undo', function () { S.undoWake(model.sched); schedChanged(); return snapshot(); });
   handle('pc:set', function (pc) {
     const { sanitize } = require('./lib/store');
     model.pc = sanitize({ pc: pc }).pc;

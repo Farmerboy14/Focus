@@ -20,7 +20,7 @@ test('subscribes, says hello, takes phone messages once, ignores the rest', asyn
   const lines = [
     { event: 'open', id: 'o1' },
     { event: 'keepalive', id: 'k1' },
-    { event: 'message', id: 'm1', message: phone('state', { sched: { blocks: [], editedAt: 5 } }, 'aaaaaaaaaaaa') },
+    { event: 'message', id: 'm1', message: phone('state', { sched: { v: 2, days: {}, editedAt: 5 } }, 'aaaaaaaaaaaa') },
     { event: 'message', id: 'm2', message: fc.encrypt(KEY, JSON.stringify({ v: 1, from: 'pc', id: 'bbbbbbbbbbbb', at: 1, t: 'clip', text: 'mine' })) },
     { event: 'message', id: 'm3', message: fc.encrypt(fc.deriveKey('AAAA-AAAA-AAAA-AAAA'), '{"from":"phone","t":"clip"}') },
     { event: 'message', id: 'm4', message: 'garbage!!' },
@@ -83,15 +83,26 @@ test('big clipboard text is cut to fit the relay limit', async () => {
   assert.strictEqual(plain.text.length, 2000);
 });
 
-test('a state envelope for a normal day fits easily', async () => {
+test('state carries {v:2, days, names, editedAt}, and a small week fits', async () => {
   const S = require('../app/lib/schedule');
   let body = null;
-  const link = new Link({ fetch: async (u, o) => { body = o.body; return new Response('{}'); } });
+  const logs = [];
+  const link = new Link({ fetch: async (u, o) => { body = o.body; return new Response('{}'); }, log: (m) => logs.push(m) });
   link.key = KEY; link.topic = TOPIC;
-  const sc = S.defaultSched();
-  for (let i = 0; i < 15; i++) sc.blocks.push({ title: 'A block with a long-ish name ' + i, preset: 'work', len: 30 });
-  assert.ok(await link.send('state', { sched: sc }));
+  const sc = S.normalize({ v: 2, days: { mon: [{ start: '06:30', end: '06:45', title: 'Wake up', preset: 'strict', note: 'Water.' }, { start: '22:30', end: '06:30', title: 'Sleep', preset: 'strict', note: '' }] }, editedAt: 9 },
+    { v: 2, days: { sun: [], mon: [], tue: [], wed: [], thu: [], fri: [], sat: [] }, names: S.DEFAULT_NAMES, editedAt: 0 });
+  assert.ok(await link.send('state', { sched: S.wire(sc) }));
   assert.ok(body.length < 4000, 'wire was ' + body.length);
+  const env = JSON.parse(fc.decrypt(KEY, body));
+  assert.deepStrictEqual(Object.keys(env.sched), ['v', 'days', 'names', 'editedAt']);
+  assert.strictEqual(env.sched.v, 2);
+  assert.strictEqual(env.sched.days.mon[1].end, '06:30');
+  assert.ok(!('wakeAt' in env.sched) && !('prevWakeAt' in env.sched) && !('defaultWake' in env.sched) && !('blocks' in env.sched));
+  // The full default week is far over ntfy's limit (PROTOCOL.md): it is refused and logged, never cut.
+  body = null;
+  assert.strictEqual(await link.send('state', { sched: S.wire(S.defaultSched()) }), false);
+  assert.strictEqual(body, null);
+  assert.ok(logs.some((m) => /state too big/.test(m)));
 });
 
 run('link');

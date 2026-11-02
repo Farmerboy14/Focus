@@ -3,7 +3,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 const CALLS = [
-  'state:get', 'sched:set', 'wake:now', 'wake:undo', 'pc:set', 'steps:set', 'settings:set', 'pair:new', 'clip:send',
+  'state:get', 'sched:set', 'pc:set', 'steps:set', 'settings:set', 'pair:new', 'clip:send',
   'bible:text', 'bible:phone', 'journal:unlock', 'journal:save', 'pause:start', 'pause:end', 'update:check',
   'update:restart', 'procs:refresh', 'log:open', 'win:minimize', 'win:close', 'win:fullscreen', 'widget:move',
   'widget:open', 'notnow:pass', 'notnow:close', 'notnow:back'

@@ -20,6 +20,8 @@
     $('tag').textContent = (d.label + ' · ' + (d.kind === 'entertainment' ? 'Entertainment' : d.presetName)).toUpperCase();
     $('msg').textContent = message(d);
     $('nowline').textContent = 'Now · ' + d.blockTitle + ' · until ' + d.blockEnd;
+    $('note').textContent = d.blockNote || '';
+    $('note').classList.toggle('hidden', !d.blockNote);
     $('back').textContent = d.presetId === 'god' ? 'Open Time with God instead' : 'Back to ' + d.blockTitle;
     $('reason').value = '';
     $('open').disabled = true;

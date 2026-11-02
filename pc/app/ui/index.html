@@ -54,6 +54,7 @@
           <div class="it" style="--i:0">
             <span class="label" id="homeNowLabel">NOW</span>
             <h1 class="blocktitle" id="homeBlock"></h1>
+            <p class="blocknote hidden" id="homeNote"></p>
             <span class="mono until" id="homeUntil"></span>
           </div>
           <div class="banner it hidden" id="pausedBanner" style="--i:1"></div>
@@ -71,21 +72,17 @@
     <section class="view v-today" id="v-today">
       <div class="pagehead it" style="--i:0">
         <div>
-          <span class="label">THE DAY</span>
-          <h1>Today</h1>
+          <span class="label">THE WEEK</span>
+          <h1 id="todayTitle">Today</h1>
           <p class="muted sub" id="todaySub"></p>
         </div>
         <div class="todaybtns">
-          <label class="wakefield"><span class="label">USUAL WAKE</span><input type="time" class="field" id="wakeInput"></label>
-          <button class="btn" id="todayWake">I just woke up</button>
-          <button class="btn" id="todayUndo">Undo wake-up</button>
+          <button class="btn" id="copyWeekdays">Copy this day to Mon–Fri</button>
+          <button class="btn" id="addBlock">+ Add block</button>
         </div>
       </div>
-      <div class="blocklist it" style="--i:1" id="blockList"></div>
-      <div class="todayfoot it" style="--i:2">
-        <button class="btn" id="addBlock">+ Add block</button>
-        <span class="mono muted" id="dayLen"></span>
-      </div>
+      <div class="ptabs daytabs it" style="--i:1" id="dayTabs" role="tablist" aria-label="Day of the week"></div>
+      <div class="blocklist it" style="--i:2" id="blockList"></div>
     </section>
 
     <!-- PRESETS -->
@@ -274,6 +271,29 @@
       <textarea class="field" id="pauseReason" rows="2" placeholder="Why do you need it right now?"></textarea>
       <button class="goldbtn" id="pauseGo" disabled>Pause for 10 minutes</button>
       <button class="plain closebtn" id="pauseCancel">Cancel</button>
+    </section>
+  </div>
+
+  <!-- Block editor sheet -->
+  <div class="modal" id="blockModal" aria-hidden="true">
+    <button class="scrim plain" id="blockScrim" aria-label="Cancel"></button>
+    <section class="sheet bsheet" role="dialog" aria-labelledby="bsHead">
+      <span class="grab"></span>
+      <span class="label" id="bsHead">EDIT BLOCK</span>
+      <input class="field bstitle" id="bsTitle" maxlength="60" placeholder="What's this block?" aria-label="Title" spellcheck="false">
+      <div class="bsrow">
+        <label class="bsfield"><span class="label">START</span><input type="time" class="field" id="bsStart"></label>
+        <label class="bsfield"><span class="label">END</span><input type="time" class="field" id="bsEnd"></label>
+        <label class="bsfield grow"><span class="label">PRESET</span><select class="field" id="bsPreset"></select></label>
+      </div>
+      <span class="mono bshint" id="bsHint"></span>
+      <label class="bsfield"><span class="label">WHAT TO DO</span><textarea class="field" id="bsNote" rows="3" maxlength="500" placeholder="A line or two, shown under the title"></textarea></label>
+      <div class="row bsbtns">
+        <button class="btn bsdel" id="bsDelete">Delete</button>
+        <span class="grow"></span>
+        <button class="plain closebtn" id="bsCancel">Cancel</button>
+        <button class="goldbtn small" id="bsSave">Save</button>
+      </div>
     </section>
   </div>
 

@@ -48,7 +48,9 @@ async function launch(home, extraEnv) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'focus-e2e-'));
   const userDir = path.join(home, '.config', 'Focus');
   fs.mkdirSync(userDir, { recursive: true });
-  fs.writeFileSync(path.join(userDir, 'focus.json'), JSON.stringify({ pair: { code: fc.normalizeCode(CODE), lastId: '' } }));
+  // Saved by Focus 1.0: the old one-day schedule.
+  fs.writeFileSync(path.join(userDir, 'focus.json'), JSON.stringify({ pair: { code: fc.normalizeCode(CODE), lastId: '' }, sched: { blocks: [{ title: 'Work', preset: 'work', len: 600 }], defaultWake: 360, wakeAt: 0, prevWakeAt: 0, editedAt: 5 } }));
+  const startedAt = Date.now();
 
   // The phone listens on the topic.
   const fromPc = [];
@@ -87,36 +89,53 @@ async function launch(home, extraEnv) {
     assert.ok(fromPc.some((e) => e.t === 'hello'), 'PC sent hello: ' + JSON.stringify(fromPc));
     ok('PC subscribed and sent an encrypted hello');
 
-    // hello -> state
-    fromPc.length = 0;
-    await phoneSend('hello');
-    await sleep(2500);
-    const st = fromPc.find((e) => e.t === 'state');
-    assert.ok(st && st.sched && Array.isArray(st.sched.blocks) && st.sched.names.god, 'PC replied to hello with state');
-    ok('PC answered the phone\'s hello with its state (' + st.sched.blocks.length + ' blocks)');
+    // The old saved one-day schedule was moved to the default week on start.
+    let saved = JSON.parse(fs.readFileSync(path.join(userDir, 'focus.json'), 'utf8'));
+    assert.strictEqual(saved.sched.v, 2);
+    assert.ok(saved.sched.days.mon.length > 10 && !('blocks' in saved.sched) && !('wakeAt' in saved.sched));
+    assert.ok(saved.sched.editedAt >= startedAt, 'migrated with editedAt = now');
+    ok('the old one-day schedule was replaced by the default week (editedAt now)');
 
-    // A newer state from the phone is applied, and not echoed back
+    // A state in the old format is ignored, even if newer.
     fromPc.length = 0;
-    const newer = S.defaultSched();
-    newer.blocks = [{ title: 'Time with God', preset: 'god', len: 45 }, { title: 'Phone-made block', preset: 'work', len: 600 }];
-    newer.defaultWake = 330;
-    newer.editedAt = Date.now() + 1000;
+    await phoneSend('state', { sched: { blocks: [{ title: 'Old phone', preset: 'work', len: 600 }], defaultWake: 360, wakeAt: Date.now(), editedAt: Date.now() + 5000 } });
+    await sleep(2500);
+    saved = JSON.parse(fs.readFileSync(path.join(userDir, 'focus.json'), 'utf8'));
+    assert.strictEqual(saved.sched.v, 2);
+    assert.ok(saved.sched.days.mon.length > 10);
+    ok('an old-format state from the phone is ignored');
+
+    // A newer version 2 week from the phone is applied, and not echoed back
+    const newer = { v: 2, days: { sun: [], mon: [], tue: [], wed: [], thu: [], fri: [], sat: [] }, names: S.DEFAULT_NAMES, editedAt: Date.now() + 10000 };
+    S.DAY_KEYS.forEach((k) => { newer.days[k] = [{ start: '06:30', end: '07:00', title: 'Phone-made block', preset: 'god', note: 'Read.' }, { start: '22:30', end: '06:30', title: 'Sleep', preset: 'strict', note: '' }]; });
     await phoneSend('state', { sched: newer });
     await sleep(3000);
-    const saved = JSON.parse(fs.readFileSync(path.join(userDir, 'focus.json'), 'utf8'));
-    assert.strictEqual(saved.sched.blocks[1].title, 'Phone-made block');
-    assert.strictEqual(saved.sched.defaultWake, 330);
+    saved = JSON.parse(fs.readFileSync(path.join(userDir, 'focus.json'), 'utf8'));
+    assert.strictEqual(saved.sched.days.mon[0].title, 'Phone-made block');
+    assert.strictEqual(saved.sched.days.mon[1].end, '06:30');
     assert.strictEqual(saved.sched.editedAt, newer.editedAt);
-    ok('phone\'s newer day applied and saved to focus.json');
+    ok('phone\'s newer week applied and saved to focus.json');
     assert.strictEqual(fromPc.filter((e) => e.t === 'state').length, 0, 'no echo: ' + JSON.stringify(fromPc.map((e) => e.t)));
     ok('applying it did not echo a state back');
 
     // An older state is ignored
-    const older = Object.assign({}, newer, { blocks: [{ title: 'Old', preset: 'normal', len: 60 }], editedAt: 1 });
+    const older = Object.assign({}, newer, { days: { mon: [{ start: '09:00', end: '10:00', title: 'Old', preset: 'normal', note: '' }] }, editedAt: 1 });
     await phoneSend('state', { sched: older });
     await sleep(2000);
-    assert.strictEqual(JSON.parse(fs.readFileSync(path.join(userDir, 'focus.json'), 'utf8')).sched.blocks[1].title, 'Phone-made block');
+    assert.strictEqual(JSON.parse(fs.readFileSync(path.join(userDir, 'focus.json'), 'utf8')).sched.days.mon[0].title, 'Phone-made block');
     ok('an older state from the phone is ignored');
+
+    // hello -> state {v:2, days, names, editedAt}
+    fromPc.length = 0;
+    await phoneSend('hello');
+    await sleep(2500);
+    const st = fromPc.find((e) => e.t === 'state');
+    assert.ok(st && st.sched, 'PC replied to hello with state');
+    assert.deepStrictEqual(Object.keys(st.sched), ['v', 'days', 'names', 'editedAt']);
+    assert.strictEqual(st.sched.v, 2);
+    assert.strictEqual(st.sched.editedAt, newer.editedAt);
+    assert.strictEqual(st.sched.days.tue[0].title, 'Phone-made block');
+    ok('PC answered the phone\'s hello with its week (v2, no wake fields)');
 
     // clip / bible / bad open are handled without crashing
     await phoneSend('clip', { text: 'copied on the phone' });
@@ -136,6 +155,7 @@ async function launch(home, extraEnv) {
     assert.ok(/not on Windows, program blocking is off/.test(log));
     ok('log.txt written, no uncaught errors (PowerShell watcher correctly skipped on Linux)');
   } catch (e) {
+    try { console.log('--- log.txt ---\n' + fs.readFileSync(path.join(userDir, 'log.txt'), 'utf8')); } catch (x) { }
     console.log('--- electron output ---\n' + app.output().split('\n').filter((l) => !/dbus|Gtk:|NODE_OPTION/.test(l)).join('\n'));
     throw e;
   } finally {

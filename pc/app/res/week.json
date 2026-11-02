@@ -1,0 +1,1108 @@
+{
+ "sun": [
+  {
+   "start": "07:00",
+   "end": "07:15",
+   "title": "Wake up and get light",
+   "preset": "strict",
+   "note": "Water, step outside."
+  },
+  {
+   "start": "07:15",
+   "end": "08:00",
+   "title": "Morning devotion",
+   "preset": "god",
+   "note": "45 unhurried minutes: reading, prayer, journal."
+  },
+  {
+   "start": "08:00",
+   "end": "08:40",
+   "title": "Breakfast with family",
+   "preset": "strict",
+   "note": ""
+  },
+  {
+   "start": "08:40",
+   "end": "09:10",
+   "title": "Get ready for church",
+   "preset": "strict",
+   "note": "Leave at 9:10."
+  },
+  {
+   "start": "09:10",
+   "end": "09:30",
+   "title": "Drive to church",
+   "preset": "strict",
+   "note": "Arrive 5 minutes early."
+  },
+  {
+   "start": "09:30",
+   "end": "11:30",
+   "title": "Church",
+   "preset": "strict",
+   "note": ""
+  },
+  {
+   "start": "11:30",
+   "end": "12:15",
+   "title": "Fellowship and drive home",
+   "preset": "normal",
+   "note": ""
+  },
+  {
+   "start": "12:15",
+   "end": "13:15",
+   "title": "Lunch with family",
+   "preset": "strict",
+   "note": ""
+  },
+  {
+   "start": "13:15",
+   "end": "15:15",
+   "title": "Family time",
+   "preset": "normal",
+   "note": ""
+  },
+  {
+   "start": "15:15",
+   "end": "17:30",
+   "title": "Disc golf or outdoors",
+   "preset": "free",
+   "note": "A round of disc golf, or a walk or hike if the weather's bad for it."
+  },
+  {
+   "start": "17:30",
+   "end": "18:15",
+   "title": "Rest and supper",
+   "preset": "normal",
+   "note": ""
+  },
+  {
+   "start": "18:15",
+   "end": "20:45",
+   "title": "Store visit and a game with your friend",
+   "preset": "free",
+   "note": "A visit, not work. Then the PC game."
+  },
+  {
+   "start": "20:45",
+   "end": "21:15",
+   "title": "Quiet time",
+   "preset": "normal",
+   "note": "Read, call someone, lay out Monday's clothes."
+  },
+  {
+   "start": "21:15",
+   "end": "21:40",
+   "title": "Guitar, just for fun",
+   "preset": "strict",
+   "note": "Play songs you like. No drills."
+  },
+  {
+   "start": "21:40",
+   "end": "22:10",
+   "title": "Evening devotion",
+   "preset": "god",
+   "note": "A Psalm, the Proverbs chapter for today's date, and prayer over the day."
+  },
+  {
+   "start": "22:10",
+   "end": "22:30",
+   "title": "Shower and bed",
+   "preset": "strict",
+   "note": ""
+  },
+  {
+   "start": "22:30",
+   "end": "06:30",
+   "title": "Sleep",
+   "preset": "strict",
+   "note": "Lights out."
+  }
+ ],
+ "mon": [
+  {
+   "start": "06:30",
+   "end": "06:45",
+   "title": "Wake up and get light",
+   "preset": "strict",
+   "note": "Up at the first alarm. Drink water, wash your face, step outside for 5 to 10 minutes."
+  },
+  {
+   "start": "06:45",
+   "end": "07:15",
+   "title": "Morning devotion",
+   "preset": "god",
+   "note": "Read one chapter, pray (thanks, confession, requests), and write one line in the journal."
+  },
+  {
+   "start": "07:15",
+   "end": "07:50",
+   "title": "Breakfast and get ready",
+   "preset": "strict",
+   "note": "Breakfast: Overnight oats. Get dressed and grab your packed lunch."
+  },
+  {
+   "start": "07:50",
+   "end": "08:00",
+   "title": "Drive to the store",
+   "preset": "strict",
+   "note": "6 minutes. Phone away."
+  },
+  {
+   "start": "08:00",
+   "end": "08:30",
+   "title": "Store: opening prep",
+   "preset": "work",
+   "note": "Get the store ready to open at 8:30 and handle anything urgent."
+  },
+  {
+   "start": "08:30",
+   "end": "11:00",
+   "title": "Ledger: deep work",
+   "preset": "work",
+   "note": "The hardest Ledger task, the one you wrote down yesterday. Stand up for 2 minutes at 9:45. Only real store needs interrupt."
+  },
+  {
+   "start": "11:00",
+   "end": "11:15",
+   "title": "Movement break",
+   "preset": "strict",
+   "note": "Desk reset: back bends, hip-flexor stretch, chest stretch, 10 squats, shoulder rolls. Then walk the store."
+  },
+  {
+   "start": "11:15",
+   "end": "12:45",
+   "title": "Dad's website",
+   "preset": "work",
+   "note": "One focused block on the website."
+  },
+  {
+   "start": "12:45",
+   "end": "13:15",
+   "title": "Lunch",
+   "preset": "normal",
+   "note": "Lunch: Chicken wrap: tortilla, chicken, spinach, cheese, salsa or hummus. Eat away from the screen."
+  },
+  {
+   "start": "13:15",
+   "end": "13:30",
+   "title": "Lunch walk",
+   "preset": "strict",
+   "note": "15 minutes outside."
+  },
+  {
+   "start": "13:30",
+   "end": "15:30",
+   "title": "Ledger: deep work, part 2",
+   "preset": "work",
+   "note": "Keep going on the same task, no switching. Stand up at 2:30."
+  },
+  {
+   "start": "15:30",
+   "end": "15:45",
+   "title": "Back-care break",
+   "preset": "strict",
+   "note": "Cat-cow, child's pose, glute bridges, bird dog, dead bug, figure-4 stretch. Then water."
+  },
+  {
+   "start": "15:45",
+   "end": "16:45",
+   "title": "Store floor",
+   "preset": "work",
+   "note": "Stocking, customers, and the list of things that waited."
+  },
+  {
+   "start": "16:45",
+   "end": "17:30",
+   "title": "Store: admin and close-out",
+   "preset": "work",
+   "note": "Email, orders, end of day. Write down tomorrow's first Ledger task before you go."
+  },
+  {
+   "start": "17:30",
+   "end": "17:45",
+   "title": "Head home",
+   "preset": "strict",
+   "note": "6-minute drive, then wash up for dinner."
+  },
+  {
+   "start": "17:45",
+   "end": "18:30",
+   "title": "Dinner with family",
+   "preset": "strict",
+   "note": "Phone away at the table."
+  },
+  {
+   "start": "18:30",
+   "end": "19:15",
+   "title": "Family time",
+   "preset": "strict",
+   "note": "Talk, help at home, or take a family walk."
+  },
+  {
+   "start": "19:15",
+   "end": "19:45",
+   "title": "Guitar app",
+   "preset": "work",
+   "note": "Improve your guitar app (through Nov 15, then this becomes Door Project time)."
+  },
+  {
+   "start": "19:45",
+   "end": "20:40",
+   "title": "Dad's website",
+   "preset": "work",
+   "note": "One focused block on the website. A Ledger block the store took over comes first."
+  },
+  {
+   "start": "20:40",
+   "end": "21:10",
+   "title": "Free time",
+   "preset": "free",
+   "note": "Your 30 minutes for whatever you like."
+  },
+  {
+   "start": "21:10",
+   "end": "21:40",
+   "title": "Guitar practice",
+   "preset": "strict",
+   "note": "Practice in your guitar app: 5 min warm-up, 15 min on the current song or chords, 10 min playing for fun."
+  },
+  {
+   "start": "21:40",
+   "end": "22:10",
+   "title": "Evening devotion",
+   "preset": "god",
+   "note": "A Psalm, the Proverbs chapter for today's date, and prayer over the day."
+  },
+  {
+   "start": "22:10",
+   "end": "22:30",
+   "title": "Shower and bed",
+   "preset": "strict",
+   "note": "Shower, lay out tomorrow's clothes, phone on the charger across the room."
+  },
+  {
+   "start": "22:30",
+   "end": "06:30",
+   "title": "Sleep",
+   "preset": "strict",
+   "note": "Lights out."
+  }
+ ],
+ "tue": [
+  {
+   "start": "06:30",
+   "end": "06:45",
+   "title": "Wake up and get light",
+   "preset": "strict",
+   "note": "Up at the first alarm. Drink water, wash your face, step outside for 5 to 10 minutes."
+  },
+  {
+   "start": "06:45",
+   "end": "07:15",
+   "title": "Morning devotion",
+   "preset": "god",
+   "note": "Read one chapter, pray (thanks, confession, requests), and write one line in the journal."
+  },
+  {
+   "start": "07:15",
+   "end": "07:50",
+   "title": "Breakfast and get ready",
+   "preset": "strict",
+   "note": "Breakfast: 2 hard-boiled eggs, a banana and yogurt. Get dressed and grab your packed lunch."
+  },
+  {
+   "start": "07:50",
+   "end": "08:00",
+   "title": "Drive to the store",
+   "preset": "strict",
+   "note": "6 minutes. Phone away."
+  },
+  {
+   "start": "08:00",
+   "end": "08:30",
+   "title": "Store: opening prep",
+   "preset": "work",
+   "note": "Get the store ready to open at 8:30 and handle anything urgent."
+  },
+  {
+   "start": "08:30",
+   "end": "11:00",
+   "title": "Ledger: deep work",
+   "preset": "work",
+   "note": "The hardest Ledger task, the one you wrote down yesterday. Stand up for 2 minutes at 9:45. Only real store needs interrupt."
+  },
+  {
+   "start": "11:00",
+   "end": "11:15",
+   "title": "Movement break",
+   "preset": "strict",
+   "note": "Desk reset: back bends, hip-flexor stretch, chest stretch, 10 squats, shoulder rolls. Then walk the store."
+  },
+  {
+   "start": "11:15",
+   "end": "12:45",
+   "title": "Dad's website",
+   "preset": "work",
+   "note": "One focused block on the website."
+  },
+  {
+   "start": "12:45",
+   "end": "13:15",
+   "title": "Lunch",
+   "preset": "normal",
+   "note": "Lunch: Chicken rice bowl: rice cup, chicken, black beans, broccoli, salsa, cheese. Eat away from the screen."
+  },
+  {
+   "start": "13:15",
+   "end": "13:30",
+   "title": "Lunch walk",
+   "preset": "strict",
+   "note": "15 minutes outside."
+  },
+  {
+   "start": "13:30",
+   "end": "15:30",
+   "title": "Ledger: deep work, part 2",
+   "preset": "work",
+   "note": "Keep going on the same task, no switching. Stand up at 2:30."
+  },
+  {
+   "start": "15:30",
+   "end": "15:45",
+   "title": "Back-care break",
+   "preset": "strict",
+   "note": "Cat-cow, child's pose, glute bridges, bird dog, dead bug, figure-4 stretch. Then water."
+  },
+  {
+   "start": "15:45",
+   "end": "16:45",
+   "title": "Store floor",
+   "preset": "work",
+   "note": "Stocking, customers, and the list of things that waited."
+  },
+  {
+   "start": "16:45",
+   "end": "17:30",
+   "title": "Store: admin and close-out",
+   "preset": "work",
+   "note": "Email, orders, end of day. Write down tomorrow's first Ledger task before you go."
+  },
+  {
+   "start": "17:30",
+   "end": "17:45",
+   "title": "Head home",
+   "preset": "strict",
+   "note": "6-minute drive, then wash up for dinner."
+  },
+  {
+   "start": "17:45",
+   "end": "18:30",
+   "title": "Dinner with family",
+   "preset": "strict",
+   "note": "Phone away at the table."
+  },
+  {
+   "start": "18:30",
+   "end": "19:15",
+   "title": "Family time",
+   "preset": "strict",
+   "note": "Talk, help at home, or take a family walk."
+  },
+  {
+   "start": "19:15",
+   "end": "19:45",
+   "title": "Guitar app",
+   "preset": "work",
+   "note": "Improve your guitar app (through Nov 15, then this becomes Door Project time)."
+  },
+  {
+   "start": "19:45",
+   "end": "20:40",
+   "title": "Dad's website",
+   "preset": "work",
+   "note": "One focused block on the website. A Ledger block the store took over comes first."
+  },
+  {
+   "start": "20:40",
+   "end": "21:10",
+   "title": "Free time",
+   "preset": "free",
+   "note": "Your 30 minutes for whatever you like."
+  },
+  {
+   "start": "21:10",
+   "end": "21:40",
+   "title": "Guitar practice",
+   "preset": "strict",
+   "note": "Practice in your guitar app: 5 min warm-up, 15 min on the current song or chords, 10 min playing for fun."
+  },
+  {
+   "start": "21:40",
+   "end": "22:10",
+   "title": "Evening devotion",
+   "preset": "god",
+   "note": "A Psalm, the Proverbs chapter for today's date, and prayer over the day."
+  },
+  {
+   "start": "22:10",
+   "end": "22:30",
+   "title": "Shower and bed",
+   "preset": "strict",
+   "note": "Shower, lay out tomorrow's clothes, phone on the charger across the room."
+  },
+  {
+   "start": "22:30",
+   "end": "06:30",
+   "title": "Sleep",
+   "preset": "strict",
+   "note": "Lights out."
+  }
+ ],
+ "wed": [
+  {
+   "start": "06:30",
+   "end": "06:45",
+   "title": "Wake up and get light",
+   "preset": "strict",
+   "note": "Up at the first alarm. Drink water, wash your face, step outside for 5 to 10 minutes."
+  },
+  {
+   "start": "06:45",
+   "end": "07:15",
+   "title": "Morning devotion",
+   "preset": "god",
+   "note": "Read one chapter, pray (thanks, confession, requests), and write one line in the journal."
+  },
+  {
+   "start": "07:15",
+   "end": "07:50",
+   "title": "Breakfast and get ready",
+   "preset": "strict",
+   "note": "Breakfast: Overnight oats. Get dressed and grab your packed lunch."
+  },
+  {
+   "start": "07:50",
+   "end": "08:00",
+   "title": "Drive to the store",
+   "preset": "strict",
+   "note": "6 minutes. Phone away."
+  },
+  {
+   "start": "08:00",
+   "end": "08:30",
+   "title": "Store: opening prep",
+   "preset": "work",
+   "note": "Get the store ready to open at 8:30 and handle anything urgent."
+  },
+  {
+   "start": "08:30",
+   "end": "11:00",
+   "title": "Ledger: deep work",
+   "preset": "work",
+   "note": "The hardest Ledger task, the one you wrote down yesterday. Stand up for 2 minutes at 9:45. Only real store needs interrupt."
+  },
+  {
+   "start": "11:00",
+   "end": "11:15",
+   "title": "Movement break",
+   "preset": "strict",
+   "note": "Desk reset: back bends, hip-flexor stretch, chest stretch, 10 squats, shoulder rolls. Then walk the store."
+  },
+  {
+   "start": "11:15",
+   "end": "12:45",
+   "title": "Dad's website",
+   "preset": "work",
+   "note": "One focused block on the website."
+  },
+  {
+   "start": "12:45",
+   "end": "13:15",
+   "title": "Lunch",
+   "preset": "normal",
+   "note": "Lunch: Big salad: spinach, chicken, tomatoes, black beans, cheese, salsa. Eat away from the screen."
+  },
+  {
+   "start": "13:15",
+   "end": "13:30",
+   "title": "Lunch walk",
+   "preset": "strict",
+   "note": "15 minutes outside."
+  },
+  {
+   "start": "13:30",
+   "end": "15:30",
+   "title": "Ledger: deep work, part 2",
+   "preset": "work",
+   "note": "Keep going on the same task, no switching. Stand up at 2:30."
+  },
+  {
+   "start": "15:30",
+   "end": "15:45",
+   "title": "Back-care break",
+   "preset": "strict",
+   "note": "Cat-cow, child's pose, glute bridges, bird dog, dead bug, figure-4 stretch. Then water."
+  },
+  {
+   "start": "15:45",
+   "end": "16:45",
+   "title": "Store floor",
+   "preset": "work",
+   "note": "Stocking, customers, and the list of things that waited."
+  },
+  {
+   "start": "16:45",
+   "end": "17:30",
+   "title": "Store: admin and close-out",
+   "preset": "work",
+   "note": "Email, orders, end of day. Write down tomorrow's first Ledger task before you go."
+  },
+  {
+   "start": "17:30",
+   "end": "17:45",
+   "title": "Head home",
+   "preset": "strict",
+   "note": "6-minute drive, then wash up for dinner."
+  },
+  {
+   "start": "17:45",
+   "end": "18:30",
+   "title": "Dinner with family",
+   "preset": "strict",
+   "note": "Phone away at the table."
+  },
+  {
+   "start": "18:30",
+   "end": "19:15",
+   "title": "Family time",
+   "preset": "strict",
+   "note": "Talk, help at home, or take a family walk."
+  },
+  {
+   "start": "19:15",
+   "end": "19:45",
+   "title": "Guitar app",
+   "preset": "work",
+   "note": "Improve your guitar app (through Nov 15, then this becomes Door Project time). Cottage meeting tonight? Go to that instead."
+  },
+  {
+   "start": "19:45",
+   "end": "20:40",
+   "title": "Dad's website",
+   "preset": "work",
+   "note": "Cottage meeting tonight (7:00 to 8:30)? Go to that instead."
+  },
+  {
+   "start": "20:40",
+   "end": "21:10",
+   "title": "Free time",
+   "preset": "free",
+   "note": "Your 30 minutes for whatever you like."
+  },
+  {
+   "start": "21:10",
+   "end": "21:40",
+   "title": "Guitar practice",
+   "preset": "strict",
+   "note": "Practice in your guitar app: 5 min warm-up, 15 min on the current song or chords, 10 min playing for fun."
+  },
+  {
+   "start": "21:40",
+   "end": "22:10",
+   "title": "Evening devotion",
+   "preset": "god",
+   "note": "A Psalm, the Proverbs chapter for today's date, and prayer over the day."
+  },
+  {
+   "start": "22:10",
+   "end": "22:30",
+   "title": "Shower and bed",
+   "preset": "strict",
+   "note": "Shower, lay out tomorrow's clothes, phone on the charger across the room."
+  },
+  {
+   "start": "22:30",
+   "end": "06:30",
+   "title": "Sleep",
+   "preset": "strict",
+   "note": "Lights out."
+  }
+ ],
+ "thu": [
+  {
+   "start": "06:30",
+   "end": "06:45",
+   "title": "Wake up and get light",
+   "preset": "strict",
+   "note": "Up at the first alarm. Drink water, wash your face, step outside for 5 to 10 minutes."
+  },
+  {
+   "start": "06:45",
+   "end": "07:15",
+   "title": "Morning devotion",
+   "preset": "god",
+   "note": "Read one chapter, pray (thanks, confession, requests), and write one line in the journal."
+  },
+  {
+   "start": "07:15",
+   "end": "07:50",
+   "title": "Breakfast and get ready",
+   "preset": "strict",
+   "note": "Breakfast: 2 hard-boiled eggs, a banana and yogurt. Get dressed and grab your packed lunch."
+  },
+  {
+   "start": "07:50",
+   "end": "08:00",
+   "title": "Drive to the store",
+   "preset": "strict",
+   "note": "6 minutes. Phone away."
+  },
+  {
+   "start": "08:00",
+   "end": "08:30",
+   "title": "Store: opening prep",
+   "preset": "work",
+   "note": "Get the store ready to open at 8:30 and handle anything urgent."
+  },
+  {
+   "start": "08:30",
+   "end": "11:00",
+   "title": "Ledger: deep work",
+   "preset": "work",
+   "note": "The hardest Ledger task, the one you wrote down yesterday. Stand up for 2 minutes at 9:45. Only real store needs interrupt."
+  },
+  {
+   "start": "11:00",
+   "end": "11:15",
+   "title": "Movement break",
+   "preset": "strict",
+   "note": "Desk reset: back bends, hip-flexor stretch, chest stretch, 10 squats, shoulder rolls. Then walk the store."
+  },
+  {
+   "start": "11:15",
+   "end": "12:45",
+   "title": "Dad's website",
+   "preset": "work",
+   "note": "One focused block on the website."
+  },
+  {
+   "start": "12:45",
+   "end": "13:15",
+   "title": "Lunch",
+   "preset": "normal",
+   "note": "Lunch: Chicken wrap: tortilla, chicken, spinach, cheese, salsa or hummus. Eat away from the screen."
+  },
+  {
+   "start": "13:15",
+   "end": "13:30",
+   "title": "Lunch walk",
+   "preset": "strict",
+   "note": "15 minutes outside."
+  },
+  {
+   "start": "13:30",
+   "end": "15:30",
+   "title": "Ledger: deep work, part 2",
+   "preset": "work",
+   "note": "Keep going on the same task, no switching. Stand up at 2:30."
+  },
+  {
+   "start": "15:30",
+   "end": "15:45",
+   "title": "Back-care break",
+   "preset": "strict",
+   "note": "Cat-cow, child's pose, glute bridges, bird dog, dead bug, figure-4 stretch. Then water."
+  },
+  {
+   "start": "15:45",
+   "end": "16:45",
+   "title": "Store floor",
+   "preset": "work",
+   "note": "Stocking, customers, and the list of things that waited."
+  },
+  {
+   "start": "16:45",
+   "end": "17:30",
+   "title": "Store: admin and close-out",
+   "preset": "work",
+   "note": "Email, orders, end of day. Write down tomorrow's first Ledger task before you go."
+  },
+  {
+   "start": "17:30",
+   "end": "17:45",
+   "title": "Head home",
+   "preset": "strict",
+   "note": "6-minute drive, then wash up for dinner."
+  },
+  {
+   "start": "17:45",
+   "end": "18:30",
+   "title": "Dinner with family",
+   "preset": "strict",
+   "note": "Phone away at the table."
+  },
+  {
+   "start": "18:30",
+   "end": "19:15",
+   "title": "Family time",
+   "preset": "strict",
+   "note": "Talk, help at home, or take a family walk."
+  },
+  {
+   "start": "19:15",
+   "end": "19:45",
+   "title": "Guitar app",
+   "preset": "work",
+   "note": "Improve your guitar app (through Nov 15, then this becomes Door Project time)."
+  },
+  {
+   "start": "19:45",
+   "end": "20:40",
+   "title": "Dad's website",
+   "preset": "work",
+   "note": "One focused block on the website. A Ledger block the store took over comes first."
+  },
+  {
+   "start": "20:40",
+   "end": "21:10",
+   "title": "Free time",
+   "preset": "free",
+   "note": "Your 30 minutes for whatever you like."
+  },
+  {
+   "start": "21:10",
+   "end": "21:40",
+   "title": "Guitar practice",
+   "preset": "strict",
+   "note": "Practice in your guitar app: 5 min warm-up, 15 min on the current song or chords, 10 min playing for fun."
+  },
+  {
+   "start": "21:40",
+   "end": "22:10",
+   "title": "Evening devotion",
+   "preset": "god",
+   "note": "A Psalm, the Proverbs chapter for today's date, and prayer over the day."
+  },
+  {
+   "start": "22:10",
+   "end": "22:30",
+   "title": "Shower and bed",
+   "preset": "strict",
+   "note": "Shower, lay out tomorrow's clothes, phone on the charger across the room."
+  },
+  {
+   "start": "22:30",
+   "end": "06:30",
+   "title": "Sleep",
+   "preset": "strict",
+   "note": "Lights out."
+  }
+ ],
+ "fri": [
+  {
+   "start": "06:30",
+   "end": "06:45",
+   "title": "Wake up and get light",
+   "preset": "strict",
+   "note": "Up at the first alarm. Drink water, wash your face, step outside for 5 to 10 minutes."
+  },
+  {
+   "start": "06:45",
+   "end": "07:15",
+   "title": "Morning devotion",
+   "preset": "god",
+   "note": "Read one chapter, pray (thanks, confession, requests), and write one line in the journal."
+  },
+  {
+   "start": "07:15",
+   "end": "07:50",
+   "title": "Breakfast and get ready",
+   "preset": "strict",
+   "note": "Breakfast: Overnight oats. Get dressed and grab your packed lunch."
+  },
+  {
+   "start": "07:50",
+   "end": "08:00",
+   "title": "Drive to the store",
+   "preset": "strict",
+   "note": "6 minutes. Phone away."
+  },
+  {
+   "start": "08:00",
+   "end": "08:30",
+   "title": "Store: opening prep",
+   "preset": "work",
+   "note": "Get the store ready to open at 8:30 and handle anything urgent."
+  },
+  {
+   "start": "08:30",
+   "end": "11:00",
+   "title": "Ledger: deep work",
+   "preset": "work",
+   "note": "The hardest Ledger task, the one you wrote down yesterday. Stand up for 2 minutes at 9:45. Only real store needs interrupt."
+  },
+  {
+   "start": "11:00",
+   "end": "11:15",
+   "title": "Movement break",
+   "preset": "strict",
+   "note": "Desk reset: back bends, hip-flexor stretch, chest stretch, 10 squats, shoulder rolls. Then walk the store."
+  },
+  {
+   "start": "11:15",
+   "end": "12:45",
+   "title": "Dad's website",
+   "preset": "work",
+   "note": "One focused block on the website."
+  },
+  {
+   "start": "12:45",
+   "end": "13:15",
+   "title": "Lunch",
+   "preset": "normal",
+   "note": "Lunch: Chicken rice bowl: rice cup, chicken, black beans, broccoli, salsa, cheese. Eat away from the screen."
+  },
+  {
+   "start": "13:15",
+   "end": "13:30",
+   "title": "Lunch walk",
+   "preset": "strict",
+   "note": "15 minutes outside."
+  },
+  {
+   "start": "13:30",
+   "end": "15:30",
+   "title": "Ledger: deep work, part 2",
+   "preset": "work",
+   "note": "Keep going on the same task, no switching. Stand up at 2:30."
+  },
+  {
+   "start": "15:30",
+   "end": "15:45",
+   "title": "Back-care break",
+   "preset": "strict",
+   "note": "Cat-cow, child's pose, glute bridges, bird dog, dead bug, figure-4 stretch. Then water."
+  },
+  {
+   "start": "15:45",
+   "end": "16:45",
+   "title": "Store floor",
+   "preset": "work",
+   "note": "Stocking, customers, and the list of things that waited."
+  },
+  {
+   "start": "16:45",
+   "end": "17:30",
+   "title": "Store: admin and close-out",
+   "preset": "work",
+   "note": "Email, orders, end of day. Write down tomorrow's first Ledger task before you go."
+  },
+  {
+   "start": "17:30",
+   "end": "17:45",
+   "title": "Head home",
+   "preset": "strict",
+   "note": "6-minute drive, then wash up for dinner."
+  },
+  {
+   "start": "17:45",
+   "end": "18:30",
+   "title": "Dinner with family",
+   "preset": "strict",
+   "note": "Phone away at the table."
+  },
+  {
+   "start": "18:30",
+   "end": "19:15",
+   "title": "Family time",
+   "preset": "strict",
+   "note": "Talk, help at home, or take a family walk."
+  },
+  {
+   "start": "19:15",
+   "end": "19:45",
+   "title": "Guitar app",
+   "preset": "work",
+   "note": "Improve your guitar app (through Nov 15, then this becomes Door Project time)."
+  },
+  {
+   "start": "19:45",
+   "end": "20:40",
+   "title": "Door Project",
+   "preset": "work",
+   "note": "One focused block on the Door Project. A Ledger block the store took over comes first."
+  },
+  {
+   "start": "20:40",
+   "end": "21:10",
+   "title": "Free time",
+   "preset": "free",
+   "note": "Your 30 minutes for whatever you like."
+  },
+  {
+   "start": "21:10",
+   "end": "21:40",
+   "title": "Guitar practice",
+   "preset": "strict",
+   "note": "Practice in your guitar app: 5 min warm-up, 15 min on the current song or chords, 10 min playing for fun."
+  },
+  {
+   "start": "21:40",
+   "end": "22:10",
+   "title": "Evening devotion",
+   "preset": "god",
+   "note": "A Psalm, the Proverbs chapter for today's date, and prayer over the day."
+  },
+  {
+   "start": "22:10",
+   "end": "22:30",
+   "title": "Shower and bed",
+   "preset": "strict",
+   "note": "Shower, lay out tomorrow's clothes, phone on the charger across the room."
+  },
+  {
+   "start": "22:30",
+   "end": "06:30",
+   "title": "Sleep",
+   "preset": "strict",
+   "note": "Lights out."
+  }
+ ],
+ "sat": [
+  {
+   "start": "06:30",
+   "end": "06:45",
+   "title": "Wake up and get light",
+   "preset": "strict",
+   "note": "Up at the first alarm. Drink water, wash your face, step outside for 5 to 10 minutes."
+  },
+  {
+   "start": "06:45",
+   "end": "07:15",
+   "title": "Morning devotion",
+   "preset": "god",
+   "note": "Read one chapter, pray (thanks, confession, requests), and write one line in the journal."
+  },
+  {
+   "start": "07:15",
+   "end": "07:50",
+   "title": "Breakfast and get ready",
+   "preset": "strict",
+   "note": "Breakfast: 2 hard-boiled eggs, a banana and yogurt. Get dressed and grab your packed lunch."
+  },
+  {
+   "start": "07:50",
+   "end": "08:00",
+   "title": "Drive to the store",
+   "preset": "strict",
+   "note": "6 minutes. Phone away."
+  },
+  {
+   "start": "08:00",
+   "end": "08:30",
+   "title": "Store: opening prep",
+   "preset": "work",
+   "note": "Get ready for the Saturday rush."
+  },
+  {
+   "start": "08:30",
+   "end": "12:30",
+   "title": "Store: Saturday rush",
+   "preset": "work",
+   "note": "Customers and stocking. Take 5 minutes for a desk reset or a walk out back around 10:30."
+  },
+  {
+   "start": "12:30",
+   "end": "13:00",
+   "title": "Lunch",
+   "preset": "normal",
+   "note": "Lunch: Big salad: spinach, chicken, tomatoes, black beans, cheese, salsa. Eat sitting down, even on a busy day."
+  },
+  {
+   "start": "13:00",
+   "end": "16:30",
+   "title": "Store: afternoon",
+   "preset": "work",
+   "note": "Customers, restocking for Monday, closing up. Back care around 3:00 if there's a lull."
+  },
+  {
+   "start": "16:30",
+   "end": "17:15",
+   "title": "Dad's website",
+   "preset": "work",
+   "note": "A focused block after close, while the store is quiet."
+  },
+  {
+   "start": "17:15",
+   "end": "17:30",
+   "title": "Shop the grocery list",
+   "preset": "normal",
+   "note": "Next week's meal-plan items: chickens, eggs, yogurt, oats, berries, bananas, apples, tortillas, rice cups, broccoli, beans, spinach, tomatoes, carrots, hummus, salsa, cheese."
+  },
+  {
+   "start": "17:30",
+   "end": "17:45",
+   "title": "Head home",
+   "preset": "strict",
+   "note": ""
+  },
+  {
+   "start": "17:45",
+   "end": "18:30",
+   "title": "Dinner with family",
+   "preset": "strict",
+   "note": "Phone away at the table."
+  },
+  {
+   "start": "18:30",
+   "end": "19:00",
+   "title": "Food prep for the week",
+   "preset": "normal",
+   "note": "Boil 10 eggs, pull chicken #1 into 3 containers, make 2 jars of overnight oats, bag the carrots."
+  },
+  {
+   "start": "19:00",
+   "end": "20:40",
+   "title": "Family time and rest",
+   "preset": "normal",
+   "note": "No work. The store day is done."
+  },
+  {
+   "start": "20:40",
+   "end": "21:10",
+   "title": "Free time",
+   "preset": "free",
+   "note": "Your 30 minutes for whatever you like."
+  },
+  {
+   "start": "21:10",
+   "end": "21:40",
+   "title": "Guitar practice",
+   "preset": "strict",
+   "note": "Practice in your guitar app: 5 min warm-up, 15 min on the current song or chords, 10 min playing for fun."
+  },
+  {
+   "start": "21:40",
+   "end": "22:10",
+   "title": "Evening devotion",
+   "preset": "god",
+   "note": "A Psalm, the Proverbs chapter for today's date, and prayer over the day."
+  },
+  {
+   "start": "22:10",
+   "end": "22:30",
+   "title": "Shower and bed",
+   "preset": "strict",
+   "note": "Shower, lay out tomorrow's clothes, phone on the charger across the room."
+  },
+  {
+   "start": "22:30",
+   "end": "07:00",
+   "title": "Sleep",
+   "preset": "strict",
+   "note": "Lights out."
+  }
+ ]
+}

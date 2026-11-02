@@ -13,6 +13,7 @@ html, body { background: transparent; }
 h1 { margin: 8px 0 0; font-size: 46px; font-weight: 300; letter-spacing: -.04em; }
 .msg { margin: 14px 0 0; font-size: 15px; line-height: 1.55; color: var(--soft); }
 .nowline { display: block; margin-top: 14px; font-size: 11px; letter-spacing: .1em; color: var(--gold-deep); text-transform: uppercase; }
+.note { margin: 8px 0 0; font-family: var(--serif); font-style: italic; font-size: 17px; line-height: 1.45; color: #E9E6DD; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
 .reason { display: none; flex-direction: column; gap: 10px; margin-top: 18px; }
 .nn[data-kind=reason] .reason { display: flex; }
 .reason textarea { font-family: var(--serif); font-size: 18px; min-height: 72px; border-color: rgba(242, 211, 138, .16); }

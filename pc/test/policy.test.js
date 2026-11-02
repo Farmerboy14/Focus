@@ -5,7 +5,8 @@ const P = require('../app/lib/policy');
 const { defaults, sanitize } = require('../app/lib/store');
 
 const at = (y, mo, d, h, mi) => new Date(y, mo - 1, d, h, mi || 0).getTime();
-const WORK = at(2026, 10, 28, 10, 0), GOD = at(2026, 10, 28, 6, 10), FREE = at(2026, 10, 28, 20, 30), STRICT = at(2026, 10, 28, 19, 30);
+// A Wednesday in the default week: Ledger at 10:00, Morning devotion at 6:50, Free time at 20:50, Family time at 18:45.
+const WORK = at(2026, 10, 28, 10, 0), GOD = at(2026, 10, 28, 6, 50), FREE = at(2026, 10, 28, 20, 50), STRICT = at(2026, 10, 28, 18, 45);
 
 function model() { return defaults(); }
 
@@ -101,8 +102,10 @@ test('reasons need four words', () => {
 });
 
 test('store sanitize repairs bad data', () => {
-  const d = sanitize({ sched: { blocks: 'x' }, pc: { presets: { work: { def: 7, modes: { 'Chrome.exe': 1, bad: 9 }, sites: ['https://www.X.com/home', 'nope'] } }, entExes: ['Discord.exe', 'discord'], ytLimit: -4 }, settings: { widget: { x: 'a' } } });
-  assert.strictEqual(d.sched.blocks.length, 7);
+  const d = sanitize({ sched: { v: 2, days: { mon: 'x' } }, pc: { presets: { work: { def: 7, modes: { 'Chrome.exe': 1, bad: 9 }, sites: ['https://www.X.com/home', 'nope'] } }, entExes: ['Discord.exe', 'discord'], ytLimit: -4 }, settings: { widget: { x: 'a' } } });
+  assert.strictEqual(d.sched.v, 2);
+  assert.deepStrictEqual(d.sched.days, defaults().sched.days);
+  assert.strictEqual(d.sched.editedAt, 0);
   assert.strictEqual(d.pc.presets.work.def, P.ALLOW);
   assert.deepStrictEqual(d.pc.presets.work.modes, { chrome: 1 });
   assert.deepStrictEqual(d.pc.presets.work.sites, ['x.com']);
@@ -110,6 +113,29 @@ test('store sanitize repairs bad data', () => {
   assert.strictEqual(d.pc.ytLimit, 0);
   assert.strictEqual(d.settings.widget, null);
   assert.strictEqual(d.pc.presets.god.def, P.BLOCK);
+});
+
+test('the old one-day schedule moves to the default week, edited now', () => {
+  const t0 = Date.now();
+  const d = sanitize({ sched: { blocks: [{ title: 'Work', preset: 'work', len: 600 }], defaultWake: 360, wakeAt: 5, prevWakeAt: 4, names: { god: 'With God' }, editedAt: 7 } });
+  assert.strictEqual(d.sched.v, 2);
+  assert.deepStrictEqual(d.sched.days, defaults().sched.days);
+  assert.ok(d.sched.editedAt >= t0);
+  assert.strictEqual(d.sched.names.god, 'With God', 'preset names are kept');
+  assert.deepStrictEqual(Object.keys(d.sched).sort(), ['days', 'editedAt', 'names', 'v']);
+  assert.strictEqual(d.migrated, true);
+  const fresh = sanitize({});
+  assert.strictEqual(fresh.sched.editedAt, 0, 'a new install starts at 0 so the phone\'s week wins');
+  assert.strictEqual(fresh.migrated, undefined);
+});
+
+test('the Not now / extension view of the block', () => {
+  const m = model();
+  const p = P.sitePolicy(m, WORK);
+  assert.strictEqual(p.block.title, 'Ledger: deep work');
+  assert.strictEqual(p.next.title, 'Movement break');
+  assert.strictEqual(p.nextFreeLabel, '8:40 PM');
+  assert.strictEqual(P.decideExe(m, 'chrome', at(2026, 10, 28, 23, 0)).presetId, 'strict', 'Sleep');
 });
 
 run('policy');

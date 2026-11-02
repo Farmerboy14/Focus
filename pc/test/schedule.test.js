@@ -1,130 +1,226 @@
 'use strict';
-// The day, against the phone's rules. Run with TZ=America/Chicago (run-all.js sets it).
+// The week (PROTOCOL.md, sched version 2), against the shared rules. Run with TZ=America/Chicago (run-all.js sets it).
 const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
 const { test, run } = require('./harness');
 const S = require('../app/lib/schedule');
 
 const at = (y, mo, d, h, mi) => new Date(y, mo - 1, d, h, mi || 0, 0, 0).getTime();
 const iso = (t) => new Date(t).toISOString();
+const week = () => S.defaultSched();
+// 2026-11-02 is a Monday; 2026-11-01 a Sunday (and the day daylight saving ends in Chicago).
 
 test('runs in America/Chicago', () => {
   assert.strictEqual(Intl.DateTimeFormat().resolvedOptions().timeZone, 'America/Chicago');
 });
 
-test('normal day: anchored at the usual wake time', () => {
-  const sc = S.defaultSched();
-  const now = at(2026, 10, 28, 10, 0);
-  assert.strictEqual(S.anchor(sc, now), at(2026, 10, 28, 6, 0));
-  const cur = S.current(sc, now);
-  assert.strictEqual(cur.title, 'Work');
-  assert.strictEqual(cur.start, at(2026, 10, 28, 7, 0));
-  assert.strictEqual(cur.end, at(2026, 10, 28, 19, 0));
-  assert.strictEqual(S.minutesLeft(cur, now), 540);
-  assert.deepStrictEqual(S.upcoming(sc, now, 3).map((s) => s.title), ['Dinner', 'Free time', 'Wind down']);
-  assert.strictEqual(S.nextFree(sc, now), at(2026, 10, 28, 20, 0));
-  const god = S.current(sc, at(2026, 10, 28, 6, 10));
-  assert.strictEqual(god.preset, 'god');
-  assert.strictEqual(S.minutesLeft(god, at(2026, 10, 28, 6, 10)), 20);
-  assert.strictEqual(S.lengthMin(god), 30);
-  assert.strictEqual(S.minutesLeft(god, at(2026, 10, 28, 6, 10) + 1000), 20, 'rounds up like the phone');
+test('the shipped week is shared/week.json', () => {
+  const shipped = fs.readFileSync(path.join(__dirname, '..', 'app', 'res', 'week.json'), 'utf8');
+  const shared = path.join(__dirname, '..', '..', 'shared', 'week.json');
+  if (fs.existsSync(shared)) assert.strictEqual(shipped, fs.readFileSync(shared, 'utf8'), 'pc/app/res/week.json is out of date');
+  const sc = week();
+  assert.strictEqual(sc.v, 2);
+  assert.deepStrictEqual(Object.keys(sc.days), S.DAY_KEYS);
+  S.DAY_KEYS.forEach((k) => assert.ok(sc.days[k].length > 10, k + ' has blocks'));
+  assert.deepStrictEqual(S.normalize(sc, sc), sc, 'the default week is already clean');
 });
 
-test('before the usual wake time, the day still belongs to yesterday (sleep)', () => {
-  const sc = S.defaultSched();
-  const now = at(2026, 10, 28, 4, 0);
-  assert.strictEqual(S.anchor(sc, now), at(2026, 10, 27, 6, 0));
-  assert.strictEqual(S.current(sc, now).title, 'Sleep');
-  assert.strictEqual(S.current(sc, now).end, at(2026, 10, 28, 6, 0));
+test('a weekday at 10:00 is Ledger: deep work', () => {
+  for (let d = 2; d <= 6; d++) {
+    const now = at(2026, 11, d, 10, 0);
+    const cur = S.current(week(), now);
+    assert.strictEqual(cur.title, 'Ledger: deep work', 'Nov ' + d);
+    assert.strictEqual(cur.preset, 'work');
+    assert.ok(cur.note.length > 0);
+    assert.strictEqual(cur.start, at(2026, 11, d, 8, 30));
+    assert.strictEqual(cur.end, at(2026, 11, d, 11, 0));
+    assert.strictEqual(S.minutesLeft(cur, now), 60);
+    assert.strictEqual(S.lengthMin(cur), 150);
+    assert.strictEqual(S.minutesLeft(cur, now + 1000), 60, 'rounds up like the phone');
+  }
 });
 
-test('waking early: the tap moves the whole day', () => {
-  const sc = S.defaultSched();
-  const tap = at(2026, 10, 28, 4, 30);
-  S.wakeNow(sc, tap);
-  assert.strictEqual(sc.prevWakeAt, 0);
-  assert.strictEqual(S.anchor(sc, at(2026, 10, 28, 4, 45)), tap);
-  assert.ok(S.dayStartedByTap(sc, at(2026, 10, 28, 4, 45)));
-  assert.strictEqual(S.current(sc, at(2026, 10, 28, 4, 45)).preset, 'god');
-  const work = S.current(sc, at(2026, 10, 28, 12, 0));
-  assert.strictEqual(work.title, 'Work');
-  assert.strictEqual(work.start, at(2026, 10, 28, 5, 30));
-  assert.strictEqual(work.end, at(2026, 10, 28, 17, 30));
-  assert.strictEqual(S.current(sc, at(2026, 10, 28, 22, 0)).title, 'Sleep');
-  // After the tapped day has run its length, the early tap still owns it: open time until the usual wake.
-  const open = S.current(sc, at(2026, 10, 29, 5, 0));
-  assert.strictEqual(open.index, -1);
-  assert.strictEqual(open.preset, 'normal');
-  assert.strictEqual(open.start, at(2026, 10, 29, 4, 30));
-  assert.strictEqual(open.end, at(2026, 10, 29, 6, 0));
-  // And at the usual wake time the normal day takes over.
-  assert.strictEqual(S.current(sc, at(2026, 10, 29, 6, 5)).preset, 'god');
-  assert.strictEqual(S.anchor(sc, at(2026, 10, 29, 6, 5)), at(2026, 10, 29, 6, 0));
+test('Sunday 02:00 is still Saturday\'s Sleep, which ends at 07:00', () => {
+  const cur = S.current(week(), at(2026, 11, 8, 2, 0));
+  assert.strictEqual(cur.title, 'Sleep');
+  assert.strictEqual(cur.day, 'sat');
+  assert.strictEqual(cur.start, at(2026, 11, 7, 22, 30));
+  assert.strictEqual(cur.end, at(2026, 11, 8, 7, 0));
 });
 
-test('undo a mistaken wake tap', () => {
-  const sc = S.defaultSched();
-  S.wakeNow(sc, at(2026, 10, 27, 6, 2));
-  S.wakeNow(sc, at(2026, 10, 28, 9, 0));
-  assert.strictEqual(S.current(sc, at(2026, 10, 28, 9, 5)).preset, 'god');
-  S.undoWake(sc);
-  assert.strictEqual(sc.wakeAt, at(2026, 10, 27, 6, 2));
-  assert.strictEqual(sc.prevWakeAt, 0);
-  assert.strictEqual(S.current(sc, at(2026, 10, 28, 9, 5)).title, 'Work');
+test('Sunday 06:45 is Sleep (Saturday night runs to 07:00)', () => {
+  const cur = S.current(week(), at(2026, 11, 8, 6, 45));
+  assert.strictEqual(cur.title, 'Sleep');
+  assert.strictEqual(cur.day, 'sat');
+  assert.strictEqual(S.minutesLeft(cur, at(2026, 11, 8, 6, 45)), 15);
+  assert.strictEqual(S.current(week(), at(2026, 11, 8, 7, 0)).title, 'Wake up and get light');
 });
 
-test('daylight saving ends 2026-11-01: wall-clock times hold', () => {
-  const sc = S.defaultSched();
-  const now = at(2026, 11, 1, 5, 30); // CST, after the 2 AM fall-back
-  assert.strictEqual(S.anchor(sc, now), at(2026, 10, 31, 6, 0));
-  assert.strictEqual(iso(S.anchor(sc, now)), '2026-10-31T11:00:00.000Z'); // 6:00 CDT
-  const sleep = S.current(sc, now);
+test('Monday 23:30 is Monday\'s Sleep', () => {
+  const cur = S.current(week(), at(2026, 11, 2, 23, 30));
+  assert.strictEqual(cur.title, 'Sleep');
+  assert.strictEqual(cur.day, 'mon');
+  assert.strictEqual(cur.start, at(2026, 11, 2, 22, 30));
+  assert.strictEqual(cur.end, at(2026, 11, 3, 6, 30));
+});
+
+test('Monday 01:00 is Sunday\'s Sleep', () => {
+  const cur = S.current(week(), at(2026, 11, 2, 1, 0));
+  assert.strictEqual(cur.title, 'Sleep');
+  assert.strictEqual(cur.day, 'sun');
+  assert.strictEqual(cur.start, at(2026, 11, 1, 22, 30));
+  assert.strictEqual(cur.end, at(2026, 11, 2, 6, 30));
+});
+
+test('daylight saving ends 2026-11-01: 01:30 is Sleep, and wall-clock times hold', () => {
+  const now = at(2026, 11, 1, 1, 30); // the first 1:30 (CDT)
+  const sleep = S.current(week(), now);
   assert.strictEqual(sleep.title, 'Sleep');
-  assert.strictEqual(sleep.start, at(2026, 10, 31, 22, 0));
-  assert.strictEqual(iso(sleep.end), '2026-11-01T12:00:00.000Z'); // 6:00 CST, not 5:00
-  assert.strictEqual(S.lengthMin(sleep), 540, 'the night really is 9 hours long');
-  assert.strictEqual(S.minutesLeft(sleep, now), 30);
-  const work = S.current(sc, at(2026, 11, 1, 7, 0));
-  assert.strictEqual(work.title, 'Work');
-  assert.strictEqual(iso(work.start), '2026-11-01T13:00:00.000Z'); // 7:00 CST
-  assert.strictEqual(new Date(work.end).getHours(), 19);
-  assert.strictEqual(S.minutesToUsualWake(sc, at(2026, 11, 1, 1, 30)), 330); // ambiguous 1:30 (CDT) -> 6:00 CST
+  assert.strictEqual(sleep.day, 'sat');
+  assert.strictEqual(iso(sleep.start), '2026-11-01T03:30:00.000Z'); // Sat 22:30 CDT
+  assert.strictEqual(iso(sleep.end), '2026-11-01T13:00:00.000Z');   // Sun 07:00 CST, not 06:00
+  assert.strictEqual(S.lengthMin(sleep), 570, 'the night really is 9 h 30 min long');
+  // 6:30 is still 6:30 on the clock (CST), and still inside Saturday's Sleep.
+  const six30 = at(2026, 11, 1, 6, 30);
+  assert.strictEqual(iso(six30), '2026-11-01T12:30:00.000Z');
+  assert.strictEqual(new Date(six30).getHours(), 6);
+  assert.strictEqual(new Date(six30).getMinutes(), 30);
+  assert.strictEqual(S.current(week(), six30).title, 'Sleep');
+  assert.strictEqual(S.minutesLeft(S.current(week(), six30), six30), 30);
+  // Sunday's own blocks sit at their clock times, and Sunday night's Sleep ends 06:30 Monday.
+  const sun = S.slots(week(), now);
+  assert.strictEqual(sun[0].title, 'Wake up and get light');
+  assert.strictEqual(iso(sun[0].start), '2026-11-01T13:00:00.000Z');
+  const night = sun[sun.length - 1];
+  assert.strictEqual(night.title, 'Sleep');
+  assert.strictEqual(new Date(night.start).getHours(), 22);
+  assert.strictEqual(new Date(night.end).getHours(), 6);
+  assert.strictEqual(new Date(night.end).getMinutes(), 30);
+  assert.strictEqual(S.lengthMin(night), 480);
 });
 
 test('daylight saving starts 2027-03-14: the short night', () => {
-  const sc = S.defaultSched();
-  const sleep = S.current(sc, at(2027, 3, 14, 4, 0));
+  const sleep = S.current(week(), at(2027, 3, 14, 4, 0)); // a Sunday
   assert.strictEqual(sleep.title, 'Sleep');
-  assert.strictEqual(new Date(sleep.end).getHours(), 6);
-  assert.strictEqual(S.lengthMin(sleep), 420);
+  assert.strictEqual(new Date(sleep.end).getHours(), 7);
+  assert.strictEqual(S.lengthMin(sleep), 450);
 });
 
-test('open time after the last block, until the next usual wake', () => {
-  const sc = S.normalize({ blocks: [{ title: 'Time with God', preset: 'god', len: 30 }, { title: 'Work', preset: 'work', len: 570 }], defaultWake: 360 });
-  const now = at(2026, 10, 28, 18, 0);
-  const open = S.current(sc, now);
+function sparse() {
+  const sc = S.normalize({ v: 2, days: { mon: [
+    { start: '09:00', end: '12:00', title: 'Work', preset: 'work', note: 'Ship it.' },
+    { start: '14:00', end: '15:00', title: 'Walk', preset: 'free', note: '' }
+  ] } }, { v: 2, days: { sun: [], mon: [], tue: [], wed: [], thu: [], fri: [], sat: [] }, names: S.DEFAULT_NAMES, editedAt: 0 });
+  sc.days.tue = [{ start: '23:00', end: '01:00', title: 'Late', preset: 'strict', note: '' }];
+  return sc;
+}
+
+test('a gap is open time until the next block', () => {
+  const sc = sparse();
+  const open = S.current(sc, at(2026, 11, 2, 13, 0));
   assert.strictEqual(open.index, -1);
   assert.strictEqual(open.title, 'Open time');
   assert.strictEqual(open.preset, 'normal');
-  assert.strictEqual(open.start, at(2026, 10, 28, 16, 0));
-  assert.strictEqual(open.end, at(2026, 10, 29, 6, 0));
-  assert.deepStrictEqual(S.upcoming(sc, now, 3), []);
-  assert.strictEqual(S.nextFree(sc, now), 0);
-  // With a tap at 7:00, the short day ends at 17:00 and stays open until 6:00.
-  S.wakeNow(sc, at(2026, 10, 28, 7, 0));
-  const open2 = S.current(sc, at(2026, 10, 28, 22, 0));
-  assert.strictEqual(open2.index, -1);
-  assert.strictEqual(open2.start, at(2026, 10, 28, 17, 0));
-  assert.strictEqual(open2.end, at(2026, 10, 29, 6, 0));
+  assert.strictEqual(open.note, '');
+  assert.strictEqual(open.start, at(2026, 11, 2, 12, 0));
+  assert.strictEqual(open.end, at(2026, 11, 2, 14, 0));
+  assert.strictEqual(S.nextFree(sc, at(2026, 11, 2, 13, 0)), at(2026, 11, 2, 14, 0));
+  // Before anything this week has started: open from midnight; after the last: until next Monday.
+  const first = S.current(sc, at(2026, 11, 2, 5, 0));
+  assert.strictEqual(first.index, -1);
+  assert.strictEqual(first.end, at(2026, 11, 2, 9, 0));
+  const after = S.current(sc, at(2026, 11, 4, 3, 0));
+  assert.strictEqual(after.start, at(2026, 11, 4, 1, 0));
+  assert.strictEqual(after.end, at(2026, 11, 9, 9, 0));
+  assert.strictEqual(S.nextFree(sc, at(2026, 11, 2, 16, 0)), 0, 'no Free time left today');
+  assert.strictEqual(S.nextFree(sc, at(2026, 11, 2, 14, 30)), at(2026, 11, 2, 14, 30), 'Free time now');
+  // An empty week is open time all day.
+  const none = S.normalize({ v: 2, days: { sun: [], mon: [], tue: [], wed: [], thu: [], fri: [], sat: [] } }, sc);
+  const o = S.current(none, at(2026, 11, 2, 10, 0));
+  assert.strictEqual(o.index, -1);
+  assert.strictEqual(o.start, at(2026, 11, 2, 0, 0));
+  assert.strictEqual(o.end, at(2026, 11, 3, 0, 0));
+  assert.deepStrictEqual(S.upcoming(none, at(2026, 11, 2, 10, 0), 3), []);
 });
 
-test('normalize cleans what comes from the phone', () => {
-  const sc = S.normalize({ blocks: [{ title: '', preset: 'nap', len: 2 }, { title: 'Ok', preset: 'free', len: 61.4 }], defaultWake: 2000, names: { god: 'With God', bogus: 'x' }, editedAt: 5 });
-  assert.deepStrictEqual(sc.blocks, [{ title: 'Block', preset: 'normal', len: 5 }, { title: 'Ok', preset: 'free', len: 61 }]);
-  assert.strictEqual(sc.defaultWake, 1439);
+test('overlaps: the later start wins, and ends the earlier block early', () => {
+  const sc = sparse();
+  sc.days.mon.push({ start: '10:00', end: '10:30', title: 'Call', preset: 'strict', note: '' });
+  const before = S.current(sc, at(2026, 11, 2, 9, 30));
+  assert.strictEqual(before.title, 'Work');
+  assert.strictEqual(before.end, at(2026, 11, 2, 10, 0));
+  assert.strictEqual(S.current(sc, at(2026, 11, 2, 10, 10)).title, 'Call');
+  const back = S.current(sc, at(2026, 11, 2, 10, 45));
+  assert.strictEqual(back.title, 'Work');
+  assert.strictEqual(back.end, at(2026, 11, 2, 12, 0));
+  // A block inside the night's Sleep wins while it runs, and Sleep's countdown stops where it starts.
+  const w = week();
+  w.days.tue.push({ start: '04:00', end: '05:00', title: 'Early bake', preset: 'work', note: '' });
+  assert.strictEqual(S.current(w, at(2026, 11, 3, 4, 30)).title, 'Early bake');
+  assert.strictEqual(S.current(w, at(2026, 11, 3, 3, 30)).end, at(2026, 11, 3, 4, 0));
+});
+
+test('upcoming crosses midnight', () => {
+  const now = at(2026, 11, 2, 22, 0); // Monday, Evening devotion
+  assert.strictEqual(S.current(week(), now).title, 'Evening devotion');
+  const up = S.upcoming(week(), now, 3);
+  assert.deepStrictEqual(up.map((s) => s.title), ['Shower and bed', 'Sleep', 'Wake up and get light']);
+  assert.deepStrictEqual(up.map((s) => s.start), [at(2026, 11, 2, 22, 10), at(2026, 11, 2, 22, 30), at(2026, 11, 3, 6, 30)]);
+  assert.deepStrictEqual(up.map((s) => s.day), ['mon', 'mon', 'tue']);
+  const late = S.upcoming(week(), at(2026, 11, 2, 23, 30), 3);
+  assert.deepStrictEqual(late.map((s) => s.title), ['Wake up and get light', 'Morning devotion', 'Breakfast and get ready']);
+  // Saturday night into Sunday's different morning.
+  const sat = S.upcoming(week(), at(2026, 11, 7, 23, 0), 2);
+  assert.deepStrictEqual(sat.map((s) => [s.title, new Date(s.start).getHours(), s.day]), [['Wake up and get light', 7, 'sun'], ['Morning devotion', 7, 'sun']]);
+  // Through a gap at the end of the week.
+  const sc = sparse();
+  assert.deepStrictEqual(S.upcoming(sc, at(2026, 11, 3, 20, 0), 2).map((s) => s.start), [at(2026, 11, 3, 23, 0), at(2026, 11, 9, 9, 0)]);
+});
+
+test('nextFree on the default week', () => {
+  assert.strictEqual(S.nextFree(week(), at(2026, 11, 2, 10, 0)), at(2026, 11, 2, 20, 40));
+  assert.strictEqual(S.nextFree(week(), at(2026, 11, 2, 20, 50)), at(2026, 11, 2, 20, 50));
+  assert.strictEqual(S.nextFree(week(), at(2026, 11, 2, 21, 30)), 0);
+  assert.strictEqual(S.nextFree(week(), at(2026, 11, 1, 10, 0)), at(2026, 11, 1, 15, 15));
+});
+
+test('slots for a date', () => {
+  const mon = S.slots(week(), at(2026, 11, 2, 12, 0));
+  assert.strictEqual(mon.length, week().days.mon.length);
+  assert.ok(mon.every((s, i) => s.day === 'mon' && s.index === i));
+  assert.strictEqual(mon[0].start, at(2026, 11, 2, 6, 30));
+  assert.strictEqual(mon[mon.length - 1].end, at(2026, 11, 3, 6, 30));
+});
+
+test('normalize: only version 2, cleaned', () => {
+  const base = week();
+  assert.deepStrictEqual(S.normalize({ blocks: [{ title: 'x', preset: 'work', len: 60 }], defaultWake: 360, wakeAt: 5, editedAt: 9e12 }, base), base, 'the old one-day format is ignored');
+  assert.deepStrictEqual(S.normalize({ v: 1, days: {} }, base), base);
+  const sc = S.normalize({ v: 2, days: { mon: [
+    { start: '9:05', end: '10:00', title: '', preset: 'nap', note: 7 },
+    { start: '08:00', end: '25:00', title: 'Bad end' },
+    { start: '07:00', end: '07:30', title: '  Early  ', preset: 'god', note: '  Pray.  ', extra: 1 }
+  ], tue: 'nope' }, names: { god: 'With God', bogus: 'x' }, editedAt: 5, wakeAt: 3 }, base);
+  assert.deepStrictEqual(sc.days.mon, [
+    { start: '07:00', end: '07:30', title: 'Early', preset: 'god', note: 'Pray.' },
+    { start: '09:05', end: '10:00', title: 'Block', preset: 'normal', note: '' }
+  ]);
+  assert.deepStrictEqual(sc.days.tue, base.days.tue, 'a bad day keeps what was there');
   assert.strictEqual(sc.names.god, 'With God');
   assert.strictEqual(sc.names.free, 'Free time');
+  assert.ok(!('bogus' in sc.names));
   assert.strictEqual(sc.editedAt, 5);
-  assert.strictEqual(S.normalize({ blocks: [] }).blocks.length, 7, 'an empty list keeps the old blocks');
+  assert.deepStrictEqual(Object.keys(sc).sort(), ['days', 'editedAt', 'names', 'v']);
+  assert.deepStrictEqual(Object.keys(S.wire(sc)), ['v', 'days', 'names', 'editedAt']);
+});
+
+test('copy a day to Monday through Friday', () => {
+  const sc = S.copyToWeekdays(sparse(), 'mon');
+  ['mon', 'tue', 'wed', 'thu', 'fri'].forEach((k) => assert.deepStrictEqual(sc.days[k], sparse().days.mon));
+  assert.deepStrictEqual(sc.days.sat, []);
+  sc.days.tue[0].title = 'changed';
+  assert.strictEqual(sc.days.wed[0].title, 'Work', 'copies, not shared');
 });
 
 test('day key and formatting match the phone', () => {
@@ -134,6 +230,12 @@ test('day key and formatting match the phone', () => {
   assert.strictEqual(S.hm(5), '0:05');
   assert.strictEqual(S.clock(at(2026, 11, 1, 0, 5)), '12:05 AM');
   assert.strictEqual(S.clock(at(2026, 11, 1, 13, 0)), '1:00 PM');
+  assert.strictEqual(S.clockMin('22:30'), '10:30 PM');
+  assert.strictEqual(S.parseHm('24:00'), -1);
+  assert.strictEqual(S.parseHm('7:5'), -1);
+  assert.strictEqual(S.fmtHm(425), '07:05');
+  assert.strictEqual(S.parseHm('7:05'), 425);
+  assert.strictEqual(S.dayOf(at(2026, 11, 2, 0, 0)), 'mon');
 });
 
 run('schedule');

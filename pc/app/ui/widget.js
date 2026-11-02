@@ -21,6 +21,10 @@
     dial.set(left / len, animate || k !== key);
     key = k;
     document.getElementById('title').textContent = cur.index < 0 ? 'Open time' : cur.title;
+    const note = document.getElementById('note');
+    note.textContent = cur.note || '';
+    note.title = cur.note || '';
+    note.classList.toggle('hidden', !cur.note);
     document.getElementById('left').textContent = S.hm(left);
     const n = st.upcoming[0];
     document.getElementById('next').textContent = (st.paused ? 'PAUSED · ' : '') + (n ? ('NEXT ' + S.clock(n.start) + ' · ' + n.title).toUpperCase() : ('UNTIL ' + S.clock(cur.end)));

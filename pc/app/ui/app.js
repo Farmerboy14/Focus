@@ -13,14 +13,14 @@
   let st = null;            // the latest snapshot from the app
   let view = 'home';
   let flow = '';            // 'god' when Bible or the journal was opened from Time with God
-  let undoUntil = 0;
   let shownKey = '';
   let bible = null, bibleLoading = null;
   let bookSel = 0, chapSel = 1;
   let presetSel = null;
   let journal = null;       // entries while unlocked, null while locked
   let jKind = 'Request';
-  let todayDirty = false;
+  let daySel = '';          // the weekday shown in Today
+  let editing = null;       // { day, index } while the block sheet is open (index -1 for a new block)
 
   const win = $('win');
   U.dust($('dust'), 26, 13);
@@ -96,7 +96,7 @@
     renderClock();
     renderLink();
     if (view === 'home') renderHome(entering);
-    else if (view === 'today') renderToday();
+    else if (view === 'today') { renderToday(); if (entering) scrollToNow(); }
     else if (view === 'presets') renderPresets();
     else if (view === 'god') renderGod(entering);
     else if (view === 'rest') renderRest();
@@ -136,16 +136,22 @@
     homeDial.set(left / len, entering || key !== shownKey);
     shownKey = key;
 
+    const note = $('homeNote');
+    note.textContent = cur.note || '';
+    note.classList.toggle('hidden', !cur.note);
+
     const next = $('homeNext');
     next.textContent = '';
     st.upcoming.forEach(function (n) {
-      const b = st.sched.blocks[n.index] || { len: S.lengthMin(n) };
+      const other = S.dayOf(n.start) !== st.today;
       next.appendChild(el('div', { class: 'nextcard stone' + (n.preset === 'god' ? ' god' : '') }, [
-        el('span', { class: 't', text: S.clock(n.start) }), el('span', { class: 'n', text: n.title }), el('span', { class: 'l', text: S.hm(b.len) })
+        el('span', { class: 't', text: S.clock(n.start) }),
+        el('span', { class: 'n', text: n.title }),
+        el('span', { class: 'l', text: other ? upper(S.DAY_NAMES[S.dayOf(n.start)].slice(0, 3)) : S.hm(S.lengthMin(n)) })
       ]));
     });
     if (!st.upcoming.length) {
-      next.appendChild(el('div', { class: 'nextcard stone' }, [el('span', { class: 't', text: S.clock(S.usualWakeAfter(st.sched, t)) }), el('span', { class: 'n', text: 'Your usual wake time' }), el('span', { class: 'l', text: '' })]));
+      next.appendChild(el('div', { class: 'nextcard stone' }, [el('span', { class: 't', text: '' }), el('span', { class: 'n', text: 'Nothing else this week' }), el('span', { class: 'l', text: '' })]));
     }
 
     const pb = $('pausedBanner');
@@ -165,95 +171,75 @@
 
     const acts = $('homeActions');
     acts.textContent = '';
-    const asleep = (cur.index < 0 || cur.title.toLowerCase().indexOf('sleep') >= 0) && st.minutesToUsualWake <= 180;
-    const morning = !st.startedByTap && t - st.anchor < 3 * S.HOUR;
     if (god) acts.appendChild(el('button', { class: 'goldbtn', text: 'Open Time with God', onclick: function () { go('god'); } }));
-    if (t < undoUntil) {
-      acts.appendChild(el('button', { class: god ? 'btn' : 'goldbtn', text: 'Day started at ' + S.clock(st.sched.wakeAt) + ' · Undo', onclick: function () {
-        undoUntil = 0;
-        call('wake:undo').then(apply);
-      } }));
-    } else if (!god) {
-      acts.appendChild(el('button', { class: (asleep || morning) ? 'goldbtn' : 'btn', text: asleep ? 'I\'m awake. Start my day' : 'I just woke up. Start from now', onclick: wakeUp }));
-    }
-  }
-
-  function wakeUp() {
-    call('wake:now').then(function (s) {
-      undoUntil = now() + 10000;
-      apply(s, true);
-      setTimeout(function () { render(false); }, 10200);
-    });
   }
 
   function apply(s, entering) { if (s && s.sched) { st = s; render(!!entering); } }
 
-  // ---------- Today ----------
+  // ---------- Today (the week) ----------
 
-  function parseLen(v) {
-    v = String(v || '').trim().toLowerCase();
-    let m = null;
-    let r;
-    if ((r = /^(\d+):(\d{1,2})$/.exec(v))) m = (+r[1]) * 60 + (+r[2]);
-    else if ((r = /^(\d+(?:\.\d+)?)\s*h(?:ours?|rs?)?$/.exec(v))) m = Math.round(parseFloat(r[1]) * 60);
-    else if ((r = /^(\d+)\s*(?:m|min|mins|minutes)?$/.exec(v))) m = +r[1];
-    if (m == null || !isFinite(m)) return null;
-    return Math.max(5, Math.min(24 * 60, m));
+  const WEEK = S.DAY_KEYS;
+  const isWeekday = function (k) { return S.WEEKDAYS.indexOf(k) >= 0; };
+  function dayList(k) { return (st.sched.days && st.sched.days[k]) || []; }
+
+  function saveDay(k, list, msg) {
+    const days = {};
+    days[k] = list;
+    return saveDays(days, msg);
+  }
+  function saveDays(days, msg) {
+    return call('sched:set', { days: days }).then(function (s) {
+      if (s && s.sched) { st = s; renderToday(); if (msg) toast(msg); return true; }
+      return false;
+    });
   }
 
-  function saveBlocks(blocks) {
-    call('sched:set', { blocks: blocks }).then(function (s) { if (s && s.sched) { st = s; renderToday(true); } });
+  function timeSpan(b) {
+    const x = S.clockMin(b.start), y = S.clockMin(b.end);
+    return (x.slice(-2) === y.slice(-2) ? x.slice(0, -3) : x) + ' – ' + y;
   }
 
-  function renderToday(force) {
-    if (!force && $('blockList').contains(document.activeElement) && document.activeElement.tagName !== 'BUTTON') { todayDirty = true; return; }
-    todayDirty = false;
-    const t = now();
+  function renderToday() {
+    if (!daySel) daySel = st.today;
     const cur = st.cur;
-    const blocks = st.sched.blocks;
-    const w = st.sched.defaultWake;
-    if (document.activeElement !== $('wakeInput')) $('wakeInput').value = String(Math.floor(w / 60)).padStart(2, '0') + ':' + String(w % 60).padStart(2, '0');
-    const usual = new Date(); usual.setHours(Math.floor(w / 60), w % 60, 0, 0);
-    const end = st.slots.length ? st.slots[st.slots.length - 1].end : st.anchor;
-    $('todaySub').textContent = (st.startedByTap ? 'Started at ' + S.clock(st.anchor) + ' when you said you were up.' : 'Starts at your usual wake time, ' + S.clock(st.anchor) + '.') +
-      ' Ends ' + S.clock(end) + (cur.index < 0 ? '. It\'s open time now.' : '.');
-    $('todayUndo').disabled = !st.sched.prevWakeAt && !st.sched.wakeAt;
-    const list = $('blockList');
-    list.textContent = '';
-    blocks.forEach(function (b, i) {
-      const sl = st.slots[i];
-      const isNow = cur.index === i;
-      const sel = el('select', { class: 'field', 'aria-label': 'Preset' }, PRESETS.map(function (p) { return el('option', { value: p, text: presetName(p) }); }));
-      sel.value = b.preset;
-      sel.addEventListener('change', function () { const nb = clone(blocks); nb[i].preset = sel.value; saveBlocks(nb); });
-      const title = el('input', { class: 'field title', value: b.title, 'aria-label': 'Block name', maxlength: 60, spellcheck: 'false' });
-      title.addEventListener('change', function () { const nb = clone(blocks); nb[i].title = title.value.trim() || 'Block'; saveBlocks(nb); });
-      title.addEventListener('keydown', function (e) { if (e.key === 'Enter') title.blur(); });
-      const len = el('input', { class: 'field len', value: S.hm(b.len), 'aria-label': 'Length (h:mm)', title: 'Length: 1:30, 45, or 2h' });
-      len.addEventListener('change', function () {
-        const m = parseLen(len.value);
-        if (m == null) { len.value = S.hm(b.len); toast('Type a length like 1:30, 45 or 2h.'); return; }
-        const nb = clone(blocks); nb[i].len = m; saveBlocks(nb);
-      });
-      len.addEventListener('keydown', function (e) { if (e.key === 'Enter') len.blur(); });
-      const up = el('button', { class: 'ibtn plain', 'aria-label': 'Move up', title: 'Move up', disabled: i === 0, onclick: function () { const nb = clone(blocks); const x = nb.splice(i, 1)[0]; nb.splice(i - 1, 0, x); saveBlocks(nb); } }, [arrow('M6 15l6-6 6 6')]);
-      const down = el('button', { class: 'ibtn plain', 'aria-label': 'Move down', title: 'Move down', disabled: i === blocks.length - 1, onclick: function () { const nb = clone(blocks); const x = nb.splice(i, 1)[0]; nb.splice(i + 1, 0, x); saveBlocks(nb); } }, [arrow('M6 9l6 6 6-6')]);
-      const del = el('button', { class: 'ibtn plain del', 'aria-label': 'Delete block', title: 'Delete', disabled: blocks.length <= 1, onclick: function () {
-        if (!del.dataset.sure) { del.dataset.sure = '1'; del.title = 'Click again to delete'; del.style.color = '#F1B5A8'; setTimeout(function () { delete del.dataset.sure; del.style.color = ''; }, 2500); return; }
-        const nb = clone(blocks); nb.splice(i, 1); saveBlocks(nb);
-      } }, [arrow('M6 6l12 12M18 6L6 18')]);
-      list.appendChild(el('div', { class: 'brow stone' + (isNow ? ' now' : '') + (b.preset === 'god' ? ' god' : '') }, [
-        el('span', { class: 'times', text: span(sl.start, sl.end) }),
-        title, sel, len, el('div', { class: 'tools' }, [up, down, del])
+    const tabs = $('dayTabs');
+    tabs.textContent = '';
+    WEEK.forEach(function (k) {
+      const b = el('button', { class: 'chip' + (k === daySel ? ' on' : ''), role: 'tab', 'aria-selected': k === daySel ? 'true' : 'false', title: S.DAY_NAMES[k], text: S.DAY_NAMES[k].slice(0, 3),
+        onclick: function () { if (daySel !== k) { daySel = k; resetCopy(); renderToday(); scrollToNow(); } } });
+      if (k === st.today) b.appendChild(el('span', { class: 'cur', title: 'Today' }));
+      tabs.appendChild(b);
+    });
+    const list = dayList(daySel);
+    const isToday = daySel === st.today;
+    $('todayTitle').textContent = isToday ? 'Today' : S.DAY_NAMES[daySel];
+    let sub = (isToday ? S.DAY_NAMES[daySel] + ' · ' : '') + (list.length ? list.length + (list.length === 1 ? ' block' : ' blocks') + ' · from ' + S.clockMin(list[0].start) : 'No blocks yet. It\'s all open time.');
+    if (isToday) sub += '. Now: ' + (cur.index < 0 ? 'open time' : cur.title) + ' until ' + S.clock(cur.end) + '.';
+    else if (list.length) sub += '.';
+    $('todaySub').textContent = sub;
+    $('copyWeekdays').classList.toggle('hidden', !isWeekday(daySel));
+
+    const box = $('blockList');
+    box.textContent = '';
+    if (!list.length) box.appendChild(el('div', { class: 'empty dayempty', text: 'Gaps between blocks are open time (' + presetName('normal') + '). Add a block to plan this day.' }));
+    list.forEach(function (b, i) {
+      const isNow = cur.day === daySel && cur.index === i;
+      const late = S.parseHm(b.end) <= S.parseHm(b.start);
+      const main = el('span', { class: 'main' }, [el('span', { class: 'bt', text: b.title })]);
+      if (b.note) main.appendChild(el('span', { class: 'bn', text: b.note }));
+      box.appendChild(el('button', { class: 'brow stone' + (isNow ? ' now' : '') + (b.preset === 'god' ? ' god' : ''), 'data-i': i, title: 'Edit ' + b.title, onclick: function () { openBlock(daySel, i); } }, [
+        el('span', { class: 'times' }, [timeSpan(b), late ? el('span', { class: 'late', text: ' +1' }) : null]),
+        main,
+        el('span', { class: 'pname p-' + b.preset, text: presetName(b.preset) }),
+        el('span', { class: 'edit', 'aria-hidden': 'true' }, [arrow('M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z')])
       ]));
     });
-    $('dayLen').textContent = 'DAY LENGTH ' + S.hm(S.totalMin(st.sched));
-    void t;
   }
 
-  function span(a, b) {
-    const x = S.clock(a), y = S.clock(b);
-    return (x.slice(-2) === y.slice(-2) ? x.slice(0, -3) : x) + ' – ' + y;
+  function scrollToNow() {
+    const box = $('blockList');
+    const row = box.querySelector('.brow.now');
+    if (row) scrollWithin(box, row, true); else box.scrollTop = 0;
   }
 
   /** Scrolls only inside a list, never the window around it. */
@@ -273,24 +259,99 @@
 
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
-  $('blockList').addEventListener('focusout', function () { setTimeout(function () { if (todayDirty && !$('blockList').contains(document.activeElement)) renderToday(); }, 0); });
-  $('addBlock').addEventListener('click', function () {
-    const nb = clone(st.sched.blocks);
-    nb.push({ title: 'New block', preset: 'normal', len: 60 });
-    saveBlocks(nb);
-    setTimeout(function () { const rows = $('blockList').querySelectorAll('input.title'); const last = rows[rows.length - 1]; if (last) { last.focus({ preventScroll: true }); last.select(); scrollWithin($('blockList'), last.closest('.brow'), false); } }, 120);
+  // Copy this day to Mon–Fri: one click to arm, a second to do it.
+  function resetCopy() { const b = $('copyWeekdays'); delete b.dataset.sure; b.textContent = 'Copy this day to Mon–Fri'; clearTimeout(resetCopy.t); }
+  $('copyWeekdays').addEventListener('click', function () {
+    const b = $('copyWeekdays');
+    if (!isWeekday(daySel)) return;
+    if (!b.dataset.sure) {
+      b.dataset.sure = '1';
+      b.textContent = 'Replace the other weekdays with ' + S.DAY_NAMES[daySel] + '?';
+      resetCopy.t = setTimeout(resetCopy, 4000);
+      return;
+    }
+    resetCopy();
+    const days = {};
+    S.WEEKDAYS.forEach(function (k) { if (k !== daySel) days[k] = clone(dayList(daySel)); });
+    saveDays(days, S.DAY_NAMES[daySel] + ' copied to Monday through Friday.');
   });
-  $('wakeInput').addEventListener('change', function () {
-    const v = /^(\d{1,2}):(\d{2})/.exec($('wakeInput').value);
-    if (!v) return;
-    call('sched:set', { defaultWake: (+v[1]) * 60 + (+v[2]) }).then(function (s) { if (s && s.sched) { st = s; renderToday(true); toast('Usual wake time saved.'); } });
+
+  // ---------- the block sheet ----------
+
+  PRESETS.forEach(function (p) { $('bsPreset').appendChild(el('option', { value: p, text: p })); });
+
+  function nextDay(k) { return S.DAY_NAMES[WEEK[(WEEK.indexOf(k) + 1) % 7]]; }
+
+  function hintBlock() {
+    const s = S.parseHm($('bsStart').value), e = S.parseHm($('bsEnd').value);
+    const h = $('bsHint');
+    if (s < 0 || e < 0) { h.textContent = 'Set a start and an end.'; $('bsSave').disabled = true; return; }
+    $('bsSave').disabled = false;
+    const len = e > s ? e - s : e + 1440 - s;
+    h.textContent = upper(S.hm(len) + (e > s ? '' : ' · runs past midnight into ' + nextDay(editing.day)));
+  }
+
+  function openBlock(day, i) {
+    const list = dayList(day);
+    let b = list[i];
+    if (!b) {
+      // A new block starts where the day's last one ends (unless that runs past midnight).
+      const last = list[list.length - 1];
+      let s = 12 * 60;
+      if (last && S.parseHm(last.end) > S.parseHm(last.start)) s = S.parseHm(last.end);
+      b = { start: S.fmtHm(s), end: S.fmtHm(Math.min(s + 60, 23 * 60 + 59)), title: '', preset: 'normal', note: '' };
+      i = -1;
+    }
+    editing = { day: day, index: i };
+    $('bsHead').textContent = upper((i < 0 ? 'New block · ' : 'Edit block · ') + S.DAY_NAMES[day]);
+    $('bsTitle').value = b.title;
+    $('bsStart').value = b.start;
+    $('bsEnd').value = b.end;
+    Array.prototype.forEach.call($('bsPreset').options, function (o) { o.textContent = presetName(o.value); });
+    $('bsPreset').value = b.preset;
+    $('bsNote').value = b.note || '';
+    $('bsDelete').classList.toggle('hidden', i < 0);
+    resetDelete();
+    hintBlock();
+    const m = $('blockModal');
+    m.classList.add('open');
+    m.setAttribute('aria-hidden', 'false');
+    setTimeout(function () { $('bsTitle').focus(); if (i < 0) $('bsTitle').select(); }, 300);
+  }
+
+  function closeBlock() { editing = null; resetDelete(); const m = $('blockModal'); m.classList.remove('open'); m.setAttribute('aria-hidden', 'true'); }
+
+  function saveBlock() {
+    if (!editing) return;
+    const s = S.parseHm($('bsStart').value), e = S.parseHm($('bsEnd').value);
+    if (s < 0 || e < 0) { toast('Set a start and an end.'); return; }
+    const b = { start: S.fmtHm(s), end: S.fmtHm(e), title: $('bsTitle').value.trim() || 'Block', preset: $('bsPreset').value, note: $('bsNote').value.trim() };
+    const list = clone(dayList(editing.day));
+    if (editing.index < 0) list.push(b); else list[editing.index] = b;
+    const day = editing.day;
+    closeBlock();
+    saveDay(day, list);
+  }
+
+  function resetDelete() { const d = $('bsDelete'); delete d.dataset.sure; d.textContent = 'Delete'; clearTimeout(resetDelete.t); }
+  $('bsDelete').addEventListener('click', function () {
+    if (!editing || editing.index < 0) return;
+    const d = $('bsDelete');
+    if (!d.dataset.sure) { d.dataset.sure = '1'; d.textContent = 'Click again to delete'; resetDelete.t = setTimeout(resetDelete, 2500); return; }
+    const list = clone(dayList(editing.day));
+    const gone = list.splice(editing.index, 1)[0];
+    const day = editing.day;
+    closeBlock();
+    saveDay(day, list, (gone ? gone.title : 'Block') + ' deleted.');
   });
-  $('todayWake').addEventListener('click', function () {
-    call('wake:now').then(function (s) { if (s && s.sched) { st = s; renderToday(true); toast('Day started at ' + S.clock(st.sched.wakeAt) + '.'); } });
-  });
-  $('todayUndo').addEventListener('click', function () {
-    call('wake:undo').then(function (s) { if (s && s.sched) { st = s; renderToday(true); toast('Wake-up undone.'); } });
-  });
+  $('bsSave').addEventListener('click', saveBlock);
+  $('bsCancel').addEventListener('click', closeBlock);
+  $('blockScrim').addEventListener('click', closeBlock);
+  $('bsStart').addEventListener('input', hintBlock);
+  $('bsEnd').addEventListener('input', hintBlock);
+  $('bsTitle').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); saveBlock(); } });
+  $('bsNote').addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); saveBlock(); } });
+  $('addBlock').addEventListener('click', function () { openBlock(daySel || st.today, -1); });
 
   // ---------- Presets ----------
 
@@ -413,7 +474,7 @@
     const t = now();
     const cur = st.cur;
     const inBlock = cur.preset === 'god';
-    $('godHead').textContent = upper((inBlock ? 'First hour awake · ' : 'Time with God · ') + S.clock(t));
+    $('godHead').textContent = upper((inBlock ? cur.title + ' · ' : 'Time with God · ') + S.clock(t));
     if (inBlock) {
       const left = S.minutesLeft(cur, t), len = S.lengthMin(cur);
       $('godBig').textContent = S.hm(left);
@@ -713,6 +774,7 @@
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
     if ($('pauseModal').classList.contains('open')) { closePause(); return; }
+    if ($('blockModal').classList.contains('open')) { closeBlock(); return; }
     if (view === 'rest') go('god');
     else if ((view === 'bible' || view === 'journal') && flow === 'god') go('god');
     else if (view === 'god') { flow = ''; go('home'); }
@@ -742,7 +804,6 @@
       else if (view === 'god') renderGod(false);
       else if (view === 'rest') renderRest();
     }
-    if (undoUntil && t >= undoUntil && view === 'home') { undoUntil = 0; renderHome(false); }
   }, 1000);
 
   api.invoke('state:get').then(function (s) {

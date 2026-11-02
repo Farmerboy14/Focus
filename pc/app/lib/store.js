@@ -29,7 +29,15 @@ function cleanList(arr, fn) {
 function sanitize(raw) {
   const d = defaults();
   if (!raw || typeof raw !== 'object') return d;
-  d.sched = S.normalize(raw.sched, d.sched);
+  if (S.isV2(raw.sched)) d.sched = S.normalize(raw.sched, d.sched);
+  else if (raw.sched && typeof raw.sched === 'object') {
+    // The old one-day schedule (blocks from a wake-up tap): replaced by the default week, edited now.
+    d.sched.editedAt = Date.now();
+    d.migrated = true;
+    if (raw.sched.names && typeof raw.sched.names === 'object') {
+      S.PRESET_IDS.forEach(function (id) { const n = raw.sched.names[id]; if (typeof n === 'string' && n.trim()) d.sched.names[id] = n.trim().slice(0, 40); });
+    }
+  }
   const pc = raw.pc || {};
   S.PRESET_IDS.forEach(function (id) {
     const src = pc.presets && pc.presets[id];
@@ -81,7 +89,11 @@ class Store {
   _load() {
     for (const f of [this.file, this.file + '.bak']) {
       try {
-        if (fs.existsSync(f)) return sanitize(JSON.parse(fs.readFileSync(f, 'utf8')));
+        if (fs.existsSync(f)) {
+          const d = sanitize(JSON.parse(fs.readFileSync(f, 'utf8')));
+          if (d.migrated) { delete d.migrated; this.log('store: moved the old one-day schedule to the default week'); this.save(); }
+          return d;
+        }
       } catch (e) { this.log('store: could not read ' + f + ': ' + e.message); }
     }
     return defaults();
