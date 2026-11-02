@@ -45,6 +45,8 @@ public static class FocusDesk {
   const long WS_CHILD = 0x40000000L, WS_POPUP = 0x80000000L, WS_EX_NOREDIRECTIONBITMAP = 0x00200000L;
   const uint SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0x10, SWP_SHOWWINDOW = 0x40;
   static readonly IntPtr BOTTOM = new IntPtr(1);
+  [DllImport("user32.dll")] static extern IntPtr SetThreadDpiAwarenessContext(IntPtr c);
+  public static void Aware() { try { SetThreadDpiAwarenessContext(new IntPtr(-4)); } catch (Exception) { } }
 
   public static string Esc(string s) {
     if (s == null) return "";
@@ -70,6 +72,7 @@ public static class FocusDesk {
 
   /** Puts the window under the icons. x, y, w, h are the screen's rectangle in physical pixels. */
   public static string Embed(long hwnd, int x, int y, int w, int h) {
+    Aware();
     IntPtr me = new IntPtr(hwnd);
     if (!IsWindow(me)) return Res("none", "no window");
     IntPtr pm = FindWindow("Progman", null);
@@ -148,6 +151,62 @@ public static class FocusDesk {
     return "{\"ok\":" + (ok ? "true" : "false") + "}";
   }
 }
+
+// The phone panel: finds the scrcpy window, ties it to Focus's panel, and fades it in and out.
+public static class FocusPhone {
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr FindWindow(string c, string n);
+  [DllImport("user32.dll")] static extern bool IsWindow(IntPtr h);
+  [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+  [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint f);
+  [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")] static extern IntPtr GetLong(IntPtr h, int i);
+  [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")] static extern IntPtr SetLong(IntPtr h, int i, IntPtr v);
+  [DllImport("user32.dll")] static extern bool SetLayeredWindowAttributes(IntPtr h, uint key, byte alpha, uint flags);
+  [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
+  [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int c);
+  static readonly IntPtr TOPMOST = new IntPtr(-1);
+  const int GWLP_HWNDPARENT = -8, GWL_EXSTYLE = -20;
+  const long WS_EX_LAYERED = 0x80000L, WS_EX_TOOLWINDOW = 0x80L, WS_EX_APPWINDOW = 0x40000L;
+
+  public static long Find(string title) {
+    IntPtr h = FindWindow(null, title);
+    return h != IntPtr.Zero && IsWindowVisible(h) ? h.ToInt64() : 0;
+  }
+
+  static void Alpha(IntPtr h, int a) {
+    long ex = GetLong(h, GWL_EXSTYLE).ToInt64();
+    if ((ex & WS_EX_LAYERED) == 0) SetLong(h, GWL_EXSTYLE, new IntPtr(ex | WS_EX_LAYERED));
+    SetLayeredWindowAttributes(h, 0, (byte)Math.Max(0, Math.Min(255, a)), 2);
+  }
+
+  /** Owned by the panel (so it moves in front with it), kept off the taskbar, placed over the panel's screen. */
+  public static bool Own(long hwnd, long owner, int x, int y, int w, int h) {
+    FocusDesk.Aware();
+    IntPtr me = new IntPtr(hwnd);
+    if (!IsWindow(me)) return false;
+    long ex = GetLong(me, GWL_EXSTYLE).ToInt64();
+    SetLong(me, GWL_EXSTYLE, new IntPtr((ex | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW));
+    SetLong(me, GWLP_HWNDPARENT, new IntPtr(owner));
+    return SetWindowPos(me, TOPMOST, x, y, w, h, 0x10 | 0x40);
+  }
+
+  public static bool Fade(long hwnd, int from, int to, int ms) {
+    IntPtr me = new IntPtr(hwnd);
+    if (!IsWindow(me)) return false;
+    int steps = Math.Max(1, ms / 16);
+    for (int i = 0; i <= steps; i++) {
+      double p = (double)i / steps;
+      double e = 1 - Math.Pow(1 - p, 3);
+      Alpha(me, (int)Math.Round(from + (to - from) * e));
+      if (i < steps) System.Threading.Thread.Sleep(16);
+    }
+    return true;
+  }
+
+  public static bool Front(long hwnd) {
+    IntPtr me = new IntPtr(hwnd);
+    return IsWindow(me) && SetForegroundWindow(me);
+  }
+}
 "@
 function Esc([string]$s) {
   if ($s -eq $null) { return '' }
@@ -202,6 +261,15 @@ while ($true) {
           'desk' { $r = [FocusDesk]::Embed([long]$parts[3], [int]$parts[4], [int]$parts[5], [int]$parts[6], [int]$parts[7]) }
           'deskok' { $r = [FocusDesk]::Check([long]$parts[3]) }
           'wallget' { $r = [FocusDesk]::WallGet() }
+          'phonefind' { $r = [FocusPhone]::Find([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($parts[3]))).ToString() }
+          'phoneown' { $r = [FocusPhone]::Own([long]$parts[3], [long]$parts[4], [int]$parts[5], [int]$parts[6], [int]$parts[7], [int]$parts[8]).ToString().ToLower() }
+          'phonefade' { $r = [FocusPhone]::Fade([long]$parts[3], [int]$parts[4], [int]$parts[5], [int]$parts[6]).ToString().ToLower() }
+          'phonefront' { $r = [FocusPhone]::Front([long]$parts[3]).ToString().ToLower() }
+          'procpath' {
+            $pp = ''
+            try { $pp = (Get-Process -Name $parts[3] -ErrorAction Stop | Select-Object -First 1).Path } catch { }
+            $r = '"' + (Esc $pp) + '"'
+          }
           'wallset' {
             $p = ''
             if ($parts.Length -ge 4 -and $parts[3] -ne '-') { $p = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($parts[3])) }

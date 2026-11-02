@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'">
+<title>Focus day map</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  /* The second screen: the whole day at a glance. Sized from the screen's height, like the main desktop. */
+  html { font-size: calc(100vh / 67.5); }
+  html, body { background: #05070C; cursor: default; }
+  .sky img, .dial .nowstar { animation: none !important; }
+  .sky img { inset: 0; width: 100%; height: 100%; transform: scaleX(-1); }
+  .sky .dawn { transition: opacity 2.4s ease; }
+  .shade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, rgba(4, 6, 11, .55), rgba(4, 6, 11, .25) 40%, rgba(4, 6, 11, .5)); }
+
+  .page { position: absolute; inset: 4.6rem 6.5rem 6rem; display: flex; flex-direction: column; }
+  .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 3rem; }
+  .head .label { font-size: .85rem; letter-spacing: .2em; }
+  .head h1 { margin: .5rem 0 0; font-family: var(--serif); font-weight: 400; font-size: 3.6rem; line-height: 1; letter-spacing: -.01em; color: #F1EFE8; }
+  .head .sum { text-align: right; font-family: var(--mono); font-size: .85rem; letter-spacing: .14em; color: var(--muted); line-height: 1.9; }
+  .head .sum b { font-family: var(--sans); font-weight: 400; font-size: 1.6rem; letter-spacing: -.01em; color: var(--ink); margin-right: .4rem; }
+
+  /* The day bar: every block from waking to sleep, with a star at now */
+  .bar { position: relative; margin-top: 2.6rem; height: 4.8rem; }
+  .track { position: absolute; left: 0; right: 0; top: 1.2rem; height: 1.1rem; border-radius: 1rem; background: rgba(170, 207, 246, .06); overflow: hidden; }
+  .seg { position: absolute; top: 0; bottom: 0; border-right: 2px solid rgba(5, 7, 12, .9); }
+  .seg.past { opacity: .35; }
+  .seg.cur { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .5); }
+  .seg.god { background: #E4C478; } .seg.work { background: #7FA8D8; } .seg.strict { background: #56607A; }
+  .seg.normal { background: #8A8F9C; } .seg.free { background: #86C79A; }
+  .nowmark { position: absolute; top: .2rem; width: 3.2rem; height: 3.2rem; margin-left: -1.6rem; pointer-events: none; }
+  .nowmark img { width: 100%; height: 100%; }
+  .hours { position: absolute; left: 0; right: 0; top: 3rem; height: 1.4rem; }
+  .hours span { position: absolute; transform: translateX(-50%); font-family: var(--mono); font-size: .74rem; letter-spacing: .1em; color: var(--quiet); white-space: nowrap; }
+
+  .cols { flex: 1; min-height: 0; margin-top: 2rem; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3.2rem; }
+  .col h2 { margin: 0 0 .8rem; font-family: var(--mono); font-weight: 400; font-size: .8rem; letter-spacing: .2em; color: var(--muted); display: flex; justify-content: space-between; }
+  .col h2 span { color: var(--quiet); }
+  .b { display: grid; grid-template-columns: 6.6rem minmax(0, 1fr); align-items: baseline; gap: .9rem; padding: .62rem .9rem; margin: 0 -.9rem; border-radius: 1rem; border: 1px solid transparent; }
+  .b .t { font-family: var(--mono); font-size: .88rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .b .n { font-size: 1.12rem; color: #DADDE3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .b .n i { font-style: normal; display: inline-block; width: .55rem; height: .55rem; border-radius: 50%; margin-right: .7rem; vertical-align: .12rem; }
+  .b.god .n { color: var(--gold); }
+  .b.past { opacity: .38; }
+  .b.past .n { text-decoration: line-through; text-decoration-color: rgba(220, 225, 235, .35); }
+  .b.cur { background-color: rgba(6, 9, 16, .72); background-image: var(--grain); background-size: 6rem; border-color: rgba(170, 207, 246, .2); padding: 1rem .9rem; }
+  .b.cur.god { border-color: rgba(242, 211, 138, .34); }
+  .b.cur .n { white-space: normal; font-size: 1.32rem; font-weight: 500; color: var(--ink); }
+  .b.cur.god .n { color: var(--gold); }
+  .b.cur .more { grid-column: 2; font-size: .98rem; line-height: 1.45; color: var(--soft); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .b.cur .left { grid-column: 2; font-family: var(--mono); font-size: .78rem; letter-spacing: .12em; color: var(--muted); }
+  .i-god { background: #E4C478; } .i-work { background: #7FA8D8; } .i-strict { background: #6A7490; } .i-normal { background: #8A8F9C; } .i-free { background: #86C79A; }
+
+  .foot { margin-top: 1.4rem; display: flex; justify-content: space-between; font-family: var(--mono); font-size: .8rem; letter-spacing: .14em; color: var(--quiet); }
+</style>
+</head>
+<body>
+<div class="sky" id="sky" aria-hidden="true"><img src="../res/img/desk_night.jpg" alt=""><img class="dawn" src="../res/img/desk_dawn.jpg" alt=""></div>
+<div class="shade" aria-hidden="true"></div>
+<main class="page">
+  <header class="head">
+    <div><span class="label" id="dayLabel">TODAY</span><h1 id="date"></h1></div>
+    <div class="sum" id="sum"></div>
+  </header>
+  <section class="bar" aria-hidden="true">
+    <div class="track" id="track"></div>
+    <div class="hours" id="hours"></div>
+    <div class="nowmark" id="nowmark"><img src="../res/img/star_blue.png" alt="" id="nowstar"></div>
+  </section>
+  <section class="cols">
+    <div class="col"><h2>MORNING <span id="cm"></span></h2><div id="morning"></div></div>
+    <div class="col"><h2>AFTERNOON <span id="ca"></span></h2><div id="afternoon"></div></div>
+    <div class="col"><h2>EVENING <span id="ce"></span></h2><div id="evening"></div></div>
+  </section>
+  <footer class="foot"><span id="tomorrow"></span><span id="presetKey"></span></footer>
+</main>
+<script src="../lib/schedule.js"></script>
+<script src="common.js"></script>
+<script src="daymap.js"></script>
+</body>
+</html>

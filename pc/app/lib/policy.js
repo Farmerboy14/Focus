@@ -11,7 +11,9 @@ const SYSTEM = [
   'logonui', 'msiexec', 'focus', 'electron', 'phoneexperiencehost', 'calculatorapp', 'snippingtool', 'screensketch',
   'mmc', 'windowsterminal', 'openconsole', 'conhost', 'cmd', 'powershell', 'pwsh', 'claude', 'quick share',
   'quickshare', 'nearby_share', 'nearbyshare', 'shellhost', 'sechealthui', 'userOOBEbroker', 'lockscreen',
-  'idle', 'system', ''
+  'idle', 'system', '',
+  // scrcpy and adb show the phone on the PC; Focus on the phone does that blocking itself.
+  'scrcpy', 'adb'
 ].map(function (s) { return s.toLowerCase(); });
 
 const DEFAULT_ENT_EXES = ['discord', 'steam', 'steamwebhelper', 'epicgameslauncher', 'robloxplayerbeta', 'roblox', 'ac2-win64-shipping'];

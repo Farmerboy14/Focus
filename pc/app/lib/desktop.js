@@ -125,7 +125,10 @@ function makeDesktop(o) {
       webPreferences: Object.assign(o.baseWeb(), { backgroundThrottling: false, spellcheck: false })
     });
     const entry = { win: win, display: display.id, hwnd: '', mode: '' };
-    win.loadFile(o.uiFile('desktop.html'));
+    // The main screen gets your day; any other screen gets the whole-day map (unless set to match).
+    const second = display.id !== screen.getPrimaryDisplay().id && settings().deskSecond !== 'same';
+    entry.page = second ? 'daymap' : 'desktop';
+    win.loadFile(o.uiFile(entry.page + '.html'));
     win.webContents.on('render-process-gone', function (e, d) { log('desktop renderer gone: ' + d.reason); scheduleRebuild(3000); });
     win.on('closed', function () {
       // Explorer restarting takes our window with it. Come back once it's up again.
@@ -292,6 +295,12 @@ function makeDesktop(o) {
       if (wantPicture() && mode === 'live') { startPicture(''); return; }
       if (!wantPicture() && mode === 'picture') { failures = 0; start().catch(oops); return; }
       if (mode === 'picture') { picKey = ''; refreshPicture(); }
+      if (mode === 'live') {
+        // A changed second-screen choice needs different pages.
+        const primary = screen.getPrimaryDisplay().id;
+        const stale = wins.some(function (w) { return w.page !== (w.display !== primary && settings().deskSecond !== 'same' ? 'daymap' : 'desktop'); });
+        if (stale) scheduleRebuild(200);
+      }
     },
     /** Called on every tick; redraws the picture when the block changes. */
     tick: function () { if (active && mode === 'picture') refreshPicture(); },

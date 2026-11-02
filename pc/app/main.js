@@ -16,6 +16,7 @@ const { startServer } = require('./lib/server');
 const { makeUpdater, readVersion } = require('./lib/updater');
 const { makeLog } = require('./lib/log');
 const { makeDesktop } = require('./lib/desktop');
+const { makePhone } = require('./lib/phone');
 
 // The desktop layer sits under the icons, where Chromium would think it's covered and stop drawing it.
 try { app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion'); } catch (e) { }
@@ -38,7 +39,7 @@ function res(...p) {
 function ui(name) { return path.join(APP_DIR, 'ui', name); }
 const PRELOAD = path.join(APP_DIR, 'preload.js');
 
-let store, model, link, watcher, server, updater, tray, desktop;
+let store, model, link, watcher, server, updater, tray, desktop, phone;
 let mainWin = null, widgetWin = null, notnowWin = null;
 let quitting = false;
 let lastFg = null;
@@ -155,7 +156,7 @@ function broadcast() {
   clearTimeout(broadcastTimer);
   broadcastTimer = setTimeout(safe(function () {
     const snap = snapshot();
-    [mainWin, widgetWin].concat(desktop ? desktop.windows() : []).forEach(function (w) { if (w && !w.isDestroyed()) w.webContents.send('state', snap); });
+    [mainWin, widgetWin, phone ? phone.window() : null].concat(desktop ? desktop.windows() : []).forEach(function (w) { if (w && !w.isDestroyed()) w.webContents.send('state', snap); });
     updateTray(snap);
   }), 30);
 }
@@ -465,6 +466,7 @@ async function checkForUpdates(manual) {
 
 function restartNow(hidden) {
   quitting = true;
+  try { phone && phone.quit(); } catch (e) { }
   try { desktop && desktop.quit(); } catch (e) { }
   try { store.flush(); } catch (e) { }
   try { watcher.stop(); } catch (e) { }
@@ -477,12 +479,13 @@ function restartNow(hidden) {
 /** A downloaded update starts on its own once Focus is just sitting in the tray. */
 function restartWhenIdle() {
   if (!pendingUpdate) return;
-  const busy = (mainWin && !mainWin.isDestroyed() && mainWin.isVisible()) || (notnowWin && !notnowWin.isDestroyed() && notnowWin.isVisible());
+  const busy = (phone && phone.isOpen()) || (mainWin && !mainWin.isDestroyed() && mainWin.isVisible()) || (notnowWin && !notnowWin.isDestroyed() && notnowWin.isVisible());
   if (!busy) { log('restarting into update ' + (pendingUpdate.name || pendingUpdate.version)); restartNow(true); }
 }
 
 function quit() {
   quitting = true;
+  try { phone && phone.quit(); } catch (e) { }
   try { desktop && desktop.quit(); } catch (e) { }
   try { store.flush(); } catch (e) { }
   try { link.stop(); } catch (e) { }
@@ -528,11 +531,12 @@ function setupIpc() {
   });
   handle('settings:set', function (a) {
     if (typeof a.startWithWindows === 'boolean') { model.settings.startWithWindows = a.startWithWindows; applyLoginItem(); }
-    if (typeof a.showWidget === 'boolean') { model.settings.showWidget = a.showWidget; setWidget(a.showWidget); }
+    if (typeof a.showWidget === 'boolean') { model.settings.showWidget = a.showWidget; if (!a.showWidget && phone) phone.collapse(); setWidget(a.showWidget); }
     let desk = false;
     if (typeof a.desktop === 'boolean') { model.settings.desktop = a.desktop; desk = true; }
     if (a.deskSide === 'left' || a.deskSide === 'right') { model.settings.deskSide = a.deskSide; desk = true; }
     if (a.deskStyle === 'live' || a.deskStyle === 'picture') { model.settings.deskStyle = a.deskStyle; desk = true; }
+    if (a.deskSecond === 'day' || a.deskSecond === 'same') { model.settings.deskSecond = a.deskSecond; desk = true; }
     store.save();
     if (desk && desktop) desktop.apply();
     broadcast();
@@ -581,7 +585,7 @@ function setupIpc() {
     if (a.done) { const p = w.getPosition(); model.settings.widget = { x: p[0], y: p[1] }; store.save(); }
     return true;
   });
-  handle('widget:open', function () { showMain('home'); return true; });
+  handle('widget:open', function () { if (phone) phone.open(); else showMain('home'); return true; });
   handle('notnow:pass', function (a) {
     const why = String(a && a.reason || '').trim();
     const exe = P.exeKey(a && a.exe);
@@ -643,6 +647,15 @@ function init() {
     model: model, save: function () { store.save(); }, schedKey: deskKey, broadcast: broadcast
   });
   desktop.apply();
+  phone = makePhone({
+    electron: electron, watcher: watcher, log: log, baseWeb: baseWeb, uiFile: ui, model: model, save: function () { store.save(); },
+    widget: function () { return widgetWin && !widgetWin.isDestroyed() ? widgetWin : null; },
+    setWidgetVisible: function (v) {
+      if (!widgetWin || widgetWin.isDestroyed()) return;
+      if (v) { if (model.settings.showWidget) widgetWin.showInactive(); } else widgetWin.hide();
+    }
+  });
+  setTimeout(safe(function () { phone.prepare(); }), 3000);
   ['display-added', 'display-removed', 'display-metrics-changed'].forEach(function (ev) {
     screen.on(ev, safe(function () { desktop.displaysChanged(); }));
   });

@@ -1,4 +1,4 @@
-// The little always-on-top widget: mini dial, block, time left, what's next. Drag to move, click to open.
+// The little always-on-top widget: mini dial, block, time left, what's next. Drag to move; click and it grows into your phone.
 (function () {
   'use strict';
   const api = window.focusApp;
@@ -38,7 +38,7 @@
     else render(false);
   }, 15000);
 
-  // Drag to move; a click without moving opens Focus.
+  // Drag to move; a click without moving opens the phone panel.
   let down = null;
   w.addEventListener('mousedown', function (e) {
     if (e.button !== 0) return;

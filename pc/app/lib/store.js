@@ -14,7 +14,7 @@ function defaults() {
     yt: { day: '', usedSec: 0 },
     seen: {},
     steps: {},
-    settings: { startWithWindows: true, showWidget: true, widget: null, desktop: true, deskSide: 'right', deskStyle: 'live', origWall: null },
+    settings: { startWithWindows: true, showWidget: true, widget: null, desktop: true, deskSide: 'right', deskStyle: 'live', deskSecond: 'day', origWall: null },
     pair: { code: '', lastId: '' }
   };
 }
@@ -71,6 +71,9 @@ function sanitize(raw) {
     if (typeof raw.settings.desktop === 'boolean') d.settings.desktop = raw.settings.desktop;
     if (raw.settings.deskSide === 'left' || raw.settings.deskSide === 'right') d.settings.deskSide = raw.settings.deskSide;
     if (raw.settings.deskStyle === 'live' || raw.settings.deskStyle === 'picture') d.settings.deskStyle = raw.settings.deskStyle;
+    if (raw.settings.deskSecond === 'day' || raw.settings.deskSecond === 'same') d.settings.deskSecond = raw.settings.deskSecond;
+    if (typeof raw.settings.scrcpyPath === 'string') d.settings.scrcpyPath = raw.settings.scrcpyPath.slice(0, 1000);
+    if (Number.isFinite(raw.settings.phoneAspect) && raw.settings.phoneAspect > 0.2 && raw.settings.phoneAspect < 1) d.settings.phoneAspect = raw.settings.phoneAspect;
     const ow = raw.settings.origWall;
     if (ow && typeof ow === 'object') {
       d.settings.origWall = { file: String(ow.file || ''), path: String(ow.path || ''), style: String(ow.style || ''), tile: String(ow.tile || '') };

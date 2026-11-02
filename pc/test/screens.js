@@ -133,6 +133,11 @@ async function shot(page, name) {
   p = await open('desktop.html?still=1', { width: 1920, height: 1080 }, MON(10, 20)); await shot(p, '28-desktop-still-picture');
   p = await open('desktop.html', { width: 1920, height: 1200 }, new Date(2026, 10, 7, 12, 50).getTime()); await shot(p, '29-desktop-saturday-1920x1200');
 
+  // The second screen's day map
+  p = await open('daymap.html', { width: 1920, height: 1080 }, MON(10, 20)); await shot(p, '30-daymap-morning');
+  p = await open('daymap.html', { width: 1920, height: 1080 }, MON(21, 50)); await shot(p, '31-daymap-evening-god');
+  p = await open('daymap.html', { width: 1920, height: 1080 }, new Date(2026, 10, 1, 15, 0).getTime()); await shot(p, '32-daymap-sunday');
+
   // Widget
   p = await open('widget.html', { width: 300, height: 110 }, MON(10, 20));
   await p.addStyleTag({ content: 'html{background:#3a4660 !important}' }); await shot(p, '17-widget');

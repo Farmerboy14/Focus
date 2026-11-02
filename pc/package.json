@@ -12,7 +12,8 @@
     "test:extension": "xvfb-run -a node test/extension.js",
     "screens": "node test/screens.js",
     "package": "bash build-win.sh",
-    "test:desktop": "xvfb-run -a electron --no-sandbox --disable-gpu test/desktop-electron.js"
+    "test:desktop": "xvfb-run -a electron --no-sandbox --disable-gpu test/desktop-electron.js",
+    "test:phone": "xvfb-run -a electron --no-sandbox --disable-gpu test/phone-electron.js"
   },
   "devDependencies": {
     "electron": "45.2.1",

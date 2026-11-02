@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'">
+<title>Focus phone panel</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  html, body { background: transparent; }
+  :root { --morph: 480ms; --ease: cubic-bezier(.2, .9, .22, 1); }
+  .shell { position: absolute; overflow: hidden; border-radius: 22px; cursor: pointer;
+    background-color: rgba(7, 9, 14, .86); background-image: var(--grain); background-size: 120px; border: 0;
+    --ring: rgba(170, 207, 246, .16); box-shadow: inset 0 0 0 1px var(--ring), inset 0 1px 0 rgba(255, 255, 255, .05);
+    transition: left var(--morph) var(--ease), top var(--morph) var(--ease), width var(--morph) var(--ease), height var(--morph) var(--ease),
+      border-radius var(--morph) var(--ease), background-color var(--morph) ease, box-shadow .4s ease; }
+  .shell.open { border-radius: 38px; background-color: rgba(6, 8, 13, .97); --ring: rgba(170, 207, 246, .22); cursor: default; }
+  .shell.gold { --ring: rgba(242, 211, 138, .3); }
+  .shell.instant, .shell.instant * { transition: none !important; }
+
+  .screen { position: absolute; border-radius: 26px; background: #000; overflow: hidden; opacity: 0;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .04); transition: opacity 220ms ease; }
+  .shell.open .screen { opacity: 1; transition: opacity 320ms ease 120ms; }
+  .msg { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 28px; text-align: center; }
+  .msg img { width: 74px; height: 74px; animation: pulse 1.8s ease-in-out infinite; }
+  .msg .t { font-size: 15px; color: var(--ink); }
+  .msg .d { font-size: 12.5px; line-height: 1.5; color: var(--muted); max-width: 260px; }
+  .msg .btn { margin-top: 6px; }
+  .msg.hidden { display: none; }
+  @keyframes pulse { 0%, 100% { opacity: .55; transform: scale(.92); } 50% { opacity: 1; transform: scale(1.04); } }
+
+  /* The widget, which becomes the phone's chin */
+  .chin { position: absolute; left: 0; right: 0; bottom: 0; height: 100%; display: grid; grid-template-columns: 86px minmax(0, 1fr) 0; align-items: center; gap: 12px; padding: 0 16px 0 8px;
+    transition: height var(--morph) var(--ease), grid-template-columns var(--morph) var(--ease), padding var(--morph) var(--ease); }
+  .shell.open .chin { height: var(--chin); grid-template-columns: 64px minmax(0, 1fr) 40px; padding: 0 18px 4px 14px; cursor: pointer; }
+  .mini { position: relative; width: 100%; aspect-ratio: 1; }
+  .mini .dialhost, .mini svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .info { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .title { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .shell.gold .title { color: var(--gold); }
+  .note { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -2px; }
+  .left { font-size: 26px; font-weight: 300; letter-spacing: -.04em; line-height: 1.05; font-variant-numeric: tabular-nums; transition: font-size var(--morph) var(--ease); }
+  .shell.open .left { font-size: 22px; }
+  .left small { font-size: 11px; letter-spacing: .1em; color: var(--muted); font-family: var(--mono); margin-left: 6px; }
+  .next { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .shell.open .note { display: none; }
+  .fold { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; opacity: 0; transform: rotate(180deg) scale(.6);
+    border: 1px solid rgba(170, 207, 246, .16); background: rgba(3, 5, 9, .6); transition: opacity .3s ease, transform .5s var(--spring); }
+  .shell.open .fold { opacity: 1; transform: none; transition-delay: .25s; }
+  .fold svg { width: 16px; height: 16px; }
+  .chin:hover .fold { border-color: rgba(170, 207, 246, .34); }
+</style>
+</head>
+<body>
+<div class="shell" id="shell">
+  <div class="screen" id="screen">
+    <div class="msg" id="msg"><img src="../res/img/star_blue.png" alt="" id="msgStar"><span class="t" id="msgT">Waking your phone…</span><span class="d" id="msgD"></span><button class="btn hidden" id="msgBtn"></button></div>
+  </div>
+  <div class="chin" id="chin" role="button" tabindex="0" aria-label="Fold the phone back into the widget">
+    <div class="mini"><div class="dialhost" id="dial"></div></div>
+    <div class="info">
+      <span class="title" id="title"></span>
+      <span class="note hidden" id="note"></span>
+      <span class="left"><span id="left">0:00</span><small>LEFT</small></span>
+      <span class="next" id="next"></span>
+    </div>
+    <span class="fold" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#CFE0FA" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+  </div>
+</div>
+<script src="../lib/schedule.js"></script>
+<script src="common.js"></script>
+<script src="phone.js"></script>
+</body>
+</html>

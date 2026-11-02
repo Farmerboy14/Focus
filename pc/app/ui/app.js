@@ -723,8 +723,8 @@
     $('tDesk').classList.toggle('on', on);
     $('tDesk').setAttribute('aria-checked', on ? 'true' : 'false');
     document.querySelectorAll('.deskopt').forEach(function (r) { r.classList.toggle('hidden', !on); });
-    ['deskSide', 'deskStyle'].forEach(function (id) {
-      const v = st.settings[id] || (id === 'deskSide' ? 'right' : 'live');
+    ['deskSide', 'deskStyle', 'deskSecond'].forEach(function (id) {
+      const v = st.settings[id] || { deskSide: 'right', deskStyle: 'live', deskSecond: 'day' }[id];
       $(id).querySelectorAll('button').forEach(function (b) { b.classList.toggle('on', b.dataset.v === v); });
     });
     const d = st.desk || { mode: 'off', why: '' };
@@ -735,7 +735,7 @@
             d.mode === 'starting' ? (d.why || 'Putting it on your desktop…') : '';
   }
   $('tDesk').addEventListener('click', function () { call('settings:set', { desktop: !st.settings.desktop }).then(function (s) { apply(s); }); });
-  ['deskSide', 'deskStyle'].forEach(function (id) {
+  ['deskSide', 'deskStyle', 'deskSecond'].forEach(function (id) {
     $(id).addEventListener('click', function (e) {
       const b = e.target.closest('button');
       if (!b) return;

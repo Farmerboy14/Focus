@@ -1,6 +1,6 @@
 {
-  "version": 4,
-  "name": "1.3",
+  "version": 5,
+  "name": "1.4",
   "minBootstrap": 1,
-  "notes": "Your day now lives on your desktop, behind your icons, like a wallpaper."
+  "notes": "Click the widget and it grows into your phone. Your second screen shows the whole day."
 }
