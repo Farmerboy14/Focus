@@ -49,6 +49,18 @@ app.whenReady().then(async function () {
   const actions = [];
   ipcMain.handle('desk:action', function (e, a) { actions.push(a); return true; });
   ipcMain.handle('desk:cloudinfo', function () { return { live: false, at: 0 }; });
+  // one plane right over Kirksville, heading west
+  const detailAsks = [];
+  ipcMain.handle('flights:get', function () {
+    const t = Math.floor(Date.now() / 1000);
+    return { world: { gen: 1, at: Date.now(), planes: [['a1b2c3', 'UAL1234', 40.19, -92.58, 270, 0, t, 10668, 0, 'United States', '1200']] }, near: { gen: 1, at: Date.now(), planes: [] } };
+  });
+  ipcMain.handle('flights:detail', function (e, a) {
+    detailAsks.push(a);
+    return { hex: a.hex, callsign: a.callsign, airline: { name: 'United Airlines' }, from: { iata: 'ORD', city: 'Chicago', lat: 41.98, lon: -87.9 },
+      to: { iata: 'DEN', city: 'Denver', lat: 39.86, lon: -104.67 }, aircraft: { maker: 'Boeing', type: '737-824', reg: 'N12345' }, photo: null,
+      live: { altFt: 35000, gsKt: 448, track: 270, climbFpm: 0, squawk: '1200' } };
+  });
   ipcMain.handle('desk:image', function (e, name) { return 'data:image/' + (/png$/.test(name) ? 'png' : 'jpeg') + ';base64,' + fs.readFileSync(path.join(APP, 'res', 'img', name)).toString('base64'); });
   let d;
   const broadcast = function () { states.push(d ? d.status().mode : '?'); };
@@ -102,6 +114,20 @@ app.whenReady().then(async function () {
     ok(homeBefore !== after && parseFloat(after) > parseFloat(homeBefore), 'dragging flies the camera around the Earth (home marker ' + homeBefore + ' -> ' + after + ')');
     const lab = await w.webContents.executeJavaScript('document.querySelectorAll(".blabel").length + "|" + document.body.classList.contains("gl")');
     ok(/\|true$/.test(lab), 'space is drawn with WebGL, with ' + lab.split('|')[0] + ' named worlds placed so far');
+    d.input('l');
+    // Click the plane over Kirksville: its details open
+    await sleep(2500);
+    const hp = await w.webContents.executeJavaScript('(function(){var h=document.getElementById("home"),e=document.getElementById("earth").getBoundingClientRect();return [Math.round(e.left+parseFloat(h.style.left)),Math.round(e.top+parseFloat(h.style.top))]})()');
+    d.input('m ' + hp[0] + ' ' + hp[1]); await sleep(150);
+    d.input('d ' + hp[0] + ' ' + hp[1]); await sleep(60); d.input('u ' + hp[0] + ' ' + hp[1]);
+    let panel = '';
+    for (let i = 0; i < 20 && !/DEN/.test(panel); i++) { await sleep(250); panel = await w.webContents.executeJavaScript('document.body.classList.contains("flight-open") ? document.getElementById("flight").innerText : ""'); }
+    ok(/UAL1234/.test(panel) && /ORD/.test(panel) && /DEN/.test(panel) && /35,000 ft/.test(panel), 'clicking a plane opens its details: ' + panel.replace(/\s+/g, ' ').slice(0, 90));
+    ok(detailAsks.length >= 1 && detailAsks[0].hex === 'a1b2c3', 'and asks for that plane');
+    const cb = await w.webContents.executeJavaScript('(function(){var r=document.getElementById("fClose").getBoundingClientRect();return [Math.round(r.x+r.width/2),Math.round(r.y+r.height/2)]})()');
+    d.input('m ' + cb[0] + ' ' + cb[1]); await sleep(100); d.input('d ' + cb[0] + ' ' + cb[1]); await sleep(60); d.input('u ' + cb[0] + ' ' + cb[1]);
+    await sleep(300);
+    ok(!(await w.webContents.executeJavaScript('document.body.classList.contains("flight-open")')), 'and the × closes them');
     d.input('l');
     // A window filling the screen pauses the animation; the desktop coming back resumes it
     d.foreground({ exe: 'chrome', title: 'YouTube', min: false, rect: [-8, -8, 1288, 1032] });

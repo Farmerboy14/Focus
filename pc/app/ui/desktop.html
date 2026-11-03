@@ -26,6 +26,44 @@
   .blabel.sun { color: rgba(255, 226, 170, .8); }
   .blabel.moon { color: rgba(232, 232, 238, .74); }
   body.still .labels { display: none; }
+
+  /* Live flights */
+  body.onplane #space { cursor: pointer; }
+  .ptip { position: absolute; left: 0; top: 0; pointer-events: none; padding: .3rem .6rem; border-radius: .5rem; font-family: var(--mono); font-size: .66rem;
+    letter-spacing: .12em; color: #F6EAD0; background: rgba(6, 9, 16, .82); border: 1px solid rgba(242, 211, 138, .25); opacity: 0; transition: opacity .15s ease; white-space: nowrap; }
+  .pmark { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; opacity: 0; transition: opacity .3s ease; }
+  .pmark::before, .pmark::after { content: ''; position: absolute; left: -1.25rem; top: -1.25rem; width: 2.5rem; height: 2.5rem; border-radius: 50%;
+    border: 1.5px solid rgba(255, 228, 170, .85); animation: ping 2.4s ease-out infinite; }
+  .pmark::after { animation-delay: 1.2s; }
+  body.paused .pmark::before, body.paused .pmark::after { animation-play-state: paused; }
+  .flight { position: absolute; left: 3.5rem; top: 3.5rem; width: 23rem; padding: 1.3rem 1.4rem 1.2rem; border-radius: 1.4rem; display: none;
+    background-color: rgba(6, 9, 16, .82); border: 1px solid rgba(242, 211, 138, .2); backdrop-filter: blur(6px); }
+  body.side-left .flight { left: auto; right: 3.5rem; }
+  body.flight-open .flight { display: block; animation: rise .35s var(--spring); }
+  @keyframes rise { from { opacity: 0; transform: translateY(.6rem); } to { opacity: 1; transform: none; } }
+  .flight .top { display: flex; align-items: center; justify-content: space-between; }
+  .flight .top span { font-family: var(--mono); font-size: .7rem; letter-spacing: .2em; color: var(--gold-deep); }
+  .flight .x { width: 2rem; height: 2rem; border-radius: 50%; font-size: 1.2rem; line-height: 1; color: var(--muted); border: 1px solid rgba(170, 207, 246, .14); background: none; }
+  .flight .x:hover { color: var(--ink); border-color: rgba(170, 207, 246, .4); }
+  .flight h3 { margin: .5rem 0 0; font-weight: 500; font-size: 1.9rem; letter-spacing: -.01em; color: #F6EAD0; }
+  .flight .al { margin-top: .15rem; font-size: .98rem; color: var(--soft); min-height: 1.2rem; }
+  .flight img { display: block; width: 100%; height: 8.5rem; object-fit: cover; border-radius: .9rem; margin-top: .9rem; opacity: .92; }
+  .flight .route { display: grid; grid-template-columns: auto 1fr auto; gap: .9rem; align-items: center; margin-top: 1rem; }
+  .flight .route:empty { display: none; }
+  .flight .end b { display: block; font-family: var(--mono); font-weight: 400; font-size: 1.25rem; letter-spacing: .06em; color: var(--ink); }
+  .flight .end span { display: block; font-size: .78rem; color: var(--muted); max-width: 6.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .flight .end:last-child { text-align: right; }
+  .flight .bar { position: relative; height: 2px; background: rgba(170, 207, 246, .16); border-radius: 2px; }
+  .flight .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(255, 228, 170, .8); border-radius: 2px; }
+  .flight .bar em { position: absolute; top: 50%; width: .55rem; height: .55rem; margin: -.275rem 0 0 -.275rem; border-radius: 50%; background: #FFE7B0; box-shadow: 0 0 .6rem rgba(255, 220, 150, .7); }
+  .flight .left2 { margin-top: .55rem; font-family: var(--mono); font-size: .7rem; letter-spacing: .12em; color: var(--muted); }
+  .flight .facts { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem 1rem; margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid rgba(170, 207, 246, .1); }
+  .flight .facts span { display: block; font-family: var(--mono); font-size: .62rem; letter-spacing: .16em; color: var(--quiet); }
+  .flight .facts b { display: block; margin-top: .2rem; font-weight: 400; font-size: 1rem; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .flight .own { margin-top: .9rem; font-size: .82rem; color: var(--muted); }
+  .flight .own:empty { display: none; }
+  .flight .src { margin-top: .8rem; font-family: var(--mono); font-size: .56rem; letter-spacing: .1em; color: var(--quiet); opacity: .7; }
+  body.still .flight, body.still .pmark, body.still .ptip { display: none !important; }
   .sky .dawn { transition: opacity 2.4s ease; }
   .shade { position: absolute; inset: 0; pointer-events: none; transition: opacity 1s ease;
     background: linear-gradient(to left, rgba(4, 6, 11, .62) 0%, rgba(4, 6, 11, .38) 34%, rgba(4, 6, 11, 0) 62%); }
@@ -119,10 +157,23 @@
 <canvas id="stars" aria-hidden="true"></canvas>
 <canvas id="space" aria-label="The Earth and the sky right now. Drag to fly around the Earth."></canvas>
 <div class="labels" id="labels" aria-hidden="true"></div>
+<div class="pmark" id="planeMark" aria-hidden="true"></div>
+<div class="ptip" id="planeTip" aria-hidden="true"></div>
 <div class="shade" aria-hidden="true"></div>
 <section class="earth" id="earth" aria-label="The Earth right now">
   <div class="home" id="home"></div>
-  <div class="cap"><b>EARTH RIGHT NOW</b><span id="earthLine"></span><i id="earthHint">DRAG TO FLY AROUND IT</i><em id="cloudLine"></em></div>
+  <div class="cap"><b>EARTH RIGHT NOW</b><span id="earthLine"></span><i id="earthHint">DRAG TO FLY AROUND IT</i><em id="flightLine"></em><em id="cloudLine"></em></div>
+</section>
+<section class="flight" id="flight" aria-live="polite">
+  <div class="top"><span>FLIGHT</span><button class="x hit" id="fClose" title="Close">×</button></div>
+  <h3 id="fCall"></h3>
+  <div class="al" id="fAirline"></div>
+  <img id="fPhoto" class="hidden" alt="">
+  <div class="route" id="fRoute"></div>
+  <div class="left2" id="fLeft"></div>
+  <div class="facts" id="fFacts"></div>
+  <div class="own" id="fOwner"></div>
+  <div class="src">OPENSKY NETWORK · AIRPLANES.LIVE · ADSBDB</div>
 </section>
 <main class="col">
   <span class="date" id="date"></span>

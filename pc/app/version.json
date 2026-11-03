@@ -1,6 +1,6 @@
 {
-  "version": 14,
-  "name": "1.8",
+  "version": 15,
+  "name": "1.9",
   "minBootstrap": 1,
-  "notes": "Fly around the Earth: drag to orbit it and see the real sky behind it, with the Moon in its true phase, the planets where they really are, and live clouds from satellites every three hours."
+  "notes": "Live flights on the Earth: every plane in the air, flying in real time. Click one to see its airline, route, aircraft and how far it has to go."
 }

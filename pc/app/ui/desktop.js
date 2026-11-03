@@ -28,7 +28,7 @@
       day: img('earth_day.jpg'), night: img('earth_night.jpg'), water: img('earth_water.png'), clouds: img('earth_clouds.jpg'), milky: img('milkyway.jpg') } });
     document.body.classList.add('gl');
     layoutScene();
-    globe.onFrame = function () { placeHome(); placeLabels(); };
+    globe.onFrame = function () { placeHome(); placeLabels(); placeFlightMarker(); };
     globe.onReady = function () { globeDone = true; layoutScene(); placeHome(); placeLabels(); if (!still && !paused) globe.start(); maybeDrawn(); };
   } catch (e) {
     console.warn('space: ' + (e && e.message));
@@ -105,24 +105,196 @@
   let drag = null;
   $('space').addEventListener('mousedown', function (e) {
     if (!globe || e.button !== 0) return;
-    drag = { x: e.clientX, y: e.clientY };
+    drag = { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY };
     document.body.classList.add('flying');
   });
   window.addEventListener('mousemove', function (e) {
     const nx = e.clientX / window.innerWidth * 2 - 1, ny = e.clientY / window.innerHeight * 2 - 1;
     if (globe) globe.point(nx, ny); else stars.point(nx, ny);
-    if (!drag) return;
+    if (!drag) { hover(e.clientX, e.clientY); return; }
     globe.drag(e.clientX - drag.x, e.clientY - drag.y);
     drag.x = e.clientX; drag.y = e.clientY;
     placeHome(); placeLabels();
   });
-  window.addEventListener('mouseup', function () {
+  window.addEventListener('mouseup', function (e) {
     if (!drag) return;
+    const moved = Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0);
     drag = null;
     document.body.classList.remove('flying');
+    if (moved < 5) { click(e.clientX, e.clientY); return; }   // a click, not a drag: maybe a plane
     globe.release(20000);
   });
   window.addEventListener('mouseleave', function () { if (globe) globe.point(0, 0); else stars.point(0, 0); });
+
+  // ---------- live flights ----------
+  // The world every 15 minutes and Kirksville's sky every 20 seconds, merged by plane; click one for its story.
+
+  const flights = { w: 0, n: 0, world: [], near: [], timer: 0, sel: null, detail: null, detailTimer: 0, hoverAt: 0 };
+  const FT = 3.28084, MPH = 2.23694;
+
+  function row2plane(r, near) {
+    return { hex: r[0], cs: r[1], lat: r[2], lon: r[3], track: r[4], speed: r[5], t: r[6], alt: r[7], climb: r[8], country: r[9] || '', squawk: r[10] || '',
+      type: near ? r[11] || '' : '', reg: near ? r[12] || '' : '', near: !!near };
+  }
+
+  function mergePlanes() {
+    const by = {};
+    flights.world.forEach(function (p) { by[p.hex] = p; });
+    flights.near.forEach(function (p) { const w = by[p.hex]; if (w && !p.country) p.country = w.country; by[p.hex] = p; });
+    const all = Object.keys(by).map(function (k) { return by[k]; });
+    flights.all = all;
+    if (flights.sel && by[flights.sel.hex]) flights.sel = by[flights.sel.hex];
+    else if (flights.sel) all.push(flights.sel);          // keep the one you're looking at, even if it dropped out
+    if (globe) globe.setPlanes(all);
+    if (flights.sel) renderFlight();
+    const live = flights.near.length + flights.world.length;
+    $('flightLine').textContent = live ? upper(all.length.toLocaleString('en-US') + ' planes in the air · click one') : '';
+  }
+
+  function pollFlights() {
+    clearTimeout(flights.timer);
+    if (still || !globe) return;
+    if (!paused) {
+      api.invoke('flights:get', { w: flights.w, n: flights.n }).then(function (r) {
+        if (!r || r.error) return;
+        let changed = false;
+        if (r.world) { flights.w = r.world.gen; flights.world = (r.world.planes || []).map(function (x) { return row2plane(x, false); }); changed = true; }
+        if (r.near) { flights.n = r.near.gen; flights.near = (r.near.planes || []).map(function (x) { return row2plane(x, true); }); changed = true; }
+        if (changed) mergePlanes();
+      }).catch(function () { });
+    }
+    flights.timer = setTimeout(pollFlights, 20000);
+  }
+
+  function hover(x, y) {
+    if (!globe || !flights.all || !flights.all.length) return;
+    const t = performance.now();
+    if (t - flights.hoverAt < 60) return;
+    flights.hoverAt = t;
+    const p = globe.planeNear(x, y, 12);
+    globe.setHovered(p ? p.hex : null);
+    document.body.classList.toggle('onplane', !!p);
+    const tip = $('planeTip');
+    if (!p) { tip.style.opacity = 0; return; }
+    tip.textContent = (p.cs || p.hex.toUpperCase()) + ' · ' + altText(p.alt * FT);
+    tip.style.transform = 'translate(' + Math.round(x + 14) + 'px,' + Math.round(y + 12) + 'px)';
+    tip.style.opacity = 1;
+  }
+
+  function click(x, y) {
+    if (!globe || !flights.all) return;
+    const p = globe.planeNear(x, y, 14);
+    if (p) select(p);
+  }
+
+  function altText(ft) { return ft > 0 ? Math.round(ft / 100) * 100 >= 18000 ? 'FL' + Math.round(ft / 100) : Math.round(ft / 50) * 50 + ' ft' : 'on the ground'; }
+  function commas(n) { return Math.round(n).toLocaleString('en-US'); }
+  function compass(deg) { return ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(((deg % 360) + 360) % 360 / 45) % 8]; }
+  function miles(a, b) {
+    const r = Math.PI / 180, x = Math.sin((b.lat - a.lat) * r / 2), y = Math.sin((b.lon - a.lon) * r / 2);
+    return 3958.8 * 2 * Math.asin(Math.sqrt(x * x + Math.cos(a.lat * r) * Math.cos(b.lat * r) * y * y));
+  }
+
+  function select(p) {
+    flights.sel = p;
+    flights.detail = null;
+    globe.setSelected(p.hex);
+    globe.setRoute(null);
+    const at = globe.planeScreen(p);
+    if (!at.visible || at.x < window.innerWidth * 0.12) globe.lookAt(at.lat, at.lon); else globe.hold(true);
+    document.body.classList.add('flight-open');
+    renderFlight();
+    loadDetail(false);
+  }
+
+  function closeFlight() {
+    flights.sel = null; flights.detail = null;
+    clearTimeout(flights.detailTimer);
+    document.body.classList.remove('flight-open');
+    if (globe) { globe.setSelected(null); globe.setRoute(null); globe.hold(false); globe.release(6000); }
+  }
+
+  function loadDetail(liveOnly) {
+    clearTimeout(flights.detailTimer);
+    const p = flights.sel;
+    if (!p) return;
+    api.invoke('flights:detail', { hex: p.hex, callsign: p.cs, liveOnly: liveOnly }).then(function (d) {
+      if (!flights.sel || flights.sel.hex !== p.hex || !d || d.error) return;
+      if (liveOnly && flights.detail) { flights.detail.live = d.live; } else flights.detail = d;
+      const lv = d.live;
+      if (lv && lv.row) {
+        // a fresh fix: put the plane exactly where it is now
+        const np = row2plane(lv.row, true);
+        np.country = p.country; Object.assign(p, np);
+        globe.setPlanes(flights.all);
+      }
+      const fd = flights.detail;
+      const here = globe.planeScreen(p);
+      globe.setRoute(fd.from, fd.to, { lat: here.lat, lon: here.lon });
+      renderFlight();
+    }).catch(function () { }).then(function () {
+      if (flights.sel && flights.sel.hex === p.hex) flights.detailTimer = setTimeout(function () { loadDetail(true); }, 10000);
+    });
+  }
+
+  function renderFlight() {
+    const p = flights.sel, d = flights.detail;
+    if (!p) return;
+    const lv = d && d.live;
+    const al = d && d.airline;
+    $('fCall').textContent = p.cs || p.hex.toUpperCase();
+    $('fAirline').textContent = al && al.name ? al.name : p.country ? 'Registered in ' + p.country : '';
+    const from = d && d.from, to = d && d.to;
+    const rt = $('fRoute');
+    rt.textContent = '';
+    if (from && to) {
+      const end = function (a) { return U.el('div', { class: 'end' }, [U.el('b', { text: a.iata || a.icao }), U.el('span', { text: a.city || a.name })]); };
+      rt.appendChild(end(from));
+      const here = globe.planeScreen(p);
+      const done = miles(from, here), left = miles(here, to);
+      const frac = Math.max(0, Math.min(1, done / Math.max(1, done + left)));
+      const bar = U.el('div', { class: 'bar' }, [U.el('i', { style: 'width:' + (frac * 100).toFixed(1) + '%' }), U.el('em', { style: 'left:' + (frac * 100).toFixed(1) + '%' })]);
+      rt.appendChild(bar);
+      rt.appendChild(end(to));
+      const gs = lv && lv.gsKt ? lv.gsKt * 1.15078 : p.speed * MPH;
+      const mins = gs > 60 ? left / gs * 60 : 0;
+      $('fLeft').textContent = commas(left) + ' mi to go' + (mins ? ' · about ' + S.hm(Math.round(mins)) : '');
+    } else {
+      $('fLeft').textContent = d ? 'Route not known for this flight' : 'Looking it up…';
+    }
+    const altFt = lv && lv.altFt !== null && lv.altFt !== undefined ? lv.altFt : p.alt * FT;
+    const mph = lv && lv.gsKt ? lv.gsKt * 1.15078 : p.speed * MPH;
+    const climb = lv && lv.climbFpm !== null && lv.climbFpm !== undefined ? lv.climbFpm : p.climb * FT * 60;
+    const trk = lv && lv.track !== null && lv.track !== undefined ? lv.track : p.track;
+    const ac = d && d.aircraft;
+    const facts = [
+      ['Altitude', altFt > 0 ? commas(Math.round(altFt / 100) * 100) + ' ft' : 'On the ground'],
+      ['Speed', commas(mph) + ' mph'],
+      ['Heading', Math.round(trk) + '° ' + compass(trk)],
+      ['Climb', Math.abs(climb) < 150 ? 'Level' : (climb > 0 ? '+' : '−') + commas(Math.abs(Math.round(climb / 50) * 50)) + ' ft/min'],
+      ['Aircraft', ac ? [ac.maker, ac.type].filter(Boolean).join(' ') || ac.icaoType : p.type || '—'],
+      ['Registration', ac && ac.reg ? ac.reg : p.reg || '—'],
+      ['Squawk', (lv && lv.squawk) || p.squawk || '—'],
+      ['Mode S', p.hex.toUpperCase()]
+    ];
+    const g = $('fFacts');
+    g.textContent = '';
+    facts.forEach(function (f) { g.appendChild(U.el('div', {}, [U.el('span', { text: upper(f[0]) }), U.el('b', { text: f[1] })])); });
+    const ph = $('fPhoto');
+    if (d && d.photo) { ph.src = d.photo; ph.classList.remove('hidden'); } else ph.classList.add('hidden');
+    $('fOwner').textContent = ac && ac.owner ? 'Operated by ' + ac.owner : '';
+  }
+
+  function placeFlightMarker() {
+    const m = $('planeMark');
+    if (!flights.sel || !globe) { m.style.opacity = 0; return; }
+    const at = globe.planeScreen(flights.sel);
+    m.style.opacity = at.visible ? 1 : 0;
+    m.style.transform = 'translate(' + Math.round(at.x) + 'px,' + Math.round(at.y) + 'px)';
+  }
+
+  $('fClose').addEventListener('click', closeFlight);
+  if (!still) setTimeout(pollFlights, 1500);
 
   // Covered by a full-screen window, asleep, or locked: stop animating.
   api.on('desk:pause', function (p) {
@@ -131,7 +303,7 @@
     if (still) return;
     if (globe) { if (paused) globe.stop(); else if (globeDone) globe.start(); }
     else if (paused) stars.stop(); else stars.start();
-    if (!paused) render();
+    if (!paused) { render(); pollFlights(); }
   });
 
   // ---------- things you can click ----------

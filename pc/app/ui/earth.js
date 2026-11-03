@@ -285,6 +285,65 @@
     '}'
   ].join('\n');
 
+  // Planes: each one flies on along its heading from its last known position (a great circle), so the world map
+  // keeps moving between updates. Drawn as tiny airliners turned the way they're heading; route dots use it too.
+  const PLANE_VS = [
+    'attribute vec4 aA; attribute vec4 aB;',     // A: lat, lon, track (radians), angular speed (rad/s); B: time of fix (s), kind, -, -
+    'uniform mat3 uE2V; uniform vec2 uC; uniform float uF; uniform float uD; uniform float uNow; uniform float uPx;',
+    'uniform vec2 uRes;',
+    'varying vec2 vDir; varying float vKind; varying float vSize; varying float vFade;',
+    'vec2 screen(vec3 v){ return uC + uF * v.xy / (uD - v.z); }',
+    'void main(){',
+    '  float la = aA.x, lo = aA.y, h = aA.z;',
+    '  vec3 p0 = vec3(cos(la) * sin(lo), sin(la), cos(la) * cos(lo));',
+    '  vec3 north = vec3(-sin(la) * sin(lo), cos(la), -sin(la) * cos(lo));',
+    '  vec3 east = vec3(cos(lo), 0.0, -sin(lo));',
+    '  vec3 t = east * sin(h) + north * cos(h);',
+    '  float dt = clamp(uNow - aB.x, 0.0, 1400.0);',
+    '  float a = aA.w * dt;',
+    '  vec3 p = p0 * cos(a) + t * sin(a);',
+    '  vec3 tt = -p0 * sin(a) + t * cos(a);',
+    '  vec3 v = uE2V * p;',
+    '  vKind = aB.y;',
+    '  vFade = aB.y < 1.5 ? 1.0 - smoothstep(1000.0, 1400.0, dt) : 1.0;',
+    '  if (v.z < 1.0 / uD + 0.012 || vFade <= 0.0) { gl_Position = vec4(3.0, 3.0, 3.0, 1.0); gl_PointSize = 1.0; vDir = vec2(0.0, 1.0); vSize = 1.0; return; }',
+    '  vec2 s = screen(v);',
+    '  vec2 s2 = screen(uE2V * normalize(p + tt * 0.01));',
+    '  vDir = length(s2 - s) > 1e-4 ? normalize(s2 - s) : vec2(0.0, 1.0);',
+    // near the edge of the Earth they fade, rather than piling up along the rim
+    '  vFade *= smoothstep(1.0 / uD + 0.012, 1.0 / uD + 0.12, v.z);',
+    '  vSize = uPx * (aB.y > 3.5 ? 1.2 : aB.y > 1.5 ? 0.62 : aB.y > 0.5 ? 2.6 : 1.0);',
+    '  gl_PointSize = vSize;',
+    '  gl_Position = vec4(s / uRes * 2.0 - 1.0, 0.0, 1.0);',
+    '}'
+  ].join('\n');
+
+  const PLANE_FS = [
+    'precision highp float;',
+    'varying vec2 vDir; varying float vKind; varying float vSize; varying float vFade;',
+    'uniform vec3 uCol; uniform vec3 uSel;',
+    'void main(){',
+    '  vec2 q = (gl_PointCoord - 0.5) * 2.0; q.y = -q.y;',
+    '  if (vKind > 1.5) {',                                  // route dots (2 flown, 3 to go) and airports (4)
+    '    float r = length(q);',
+    '    float a = smoothstep(1.0, 0.45, r) * (vKind > 2.5 && vKind < 3.5 ? 0.45 : 0.95);',
+    '    if (vKind > 3.5) a = max(smoothstep(1.0, 0.8, r) * smoothstep(0.45, 0.65, r), smoothstep(0.32, 0.12, r)) * 0.95;',
+    '    gl_FragColor = vec4(uSel * a, a);',
+    '    return;',
+    '  }',
+    '  float f = dot(q, vDir), s = dot(q, vec2(-vDir.y, vDir.x)), as = abs(s);',
+    '  float aa = 2.2 / vSize;',
+    '  float body = smoothstep(0.14 + aa, 0.14, as) * smoothstep(0.98, 0.98 - aa, f) * smoothstep(-0.86 - aa, -0.86, f);',
+    '  float wing = smoothstep(0.92, 0.92 - aa, as) * smoothstep(0.17 + aa, 0.17, abs(f - 0.10 + as * 0.42));',
+    '  float tail = smoothstep(0.40, 0.40 - aa, as) * smoothstep(0.11 + aa, 0.11, abs(f + 0.74 + as * 0.30));',
+    '  float m = max(body, max(wing, tail));',
+    '  float glow = smoothstep(1.0, 0.0, length(q)) * (vKind > 0.5 ? 0.30 : 0.0);',
+    '  vec3 c = vKind > 0.5 ? uSel : uCol;',
+    '  float a = max(m * (vKind > 0.5 ? 1.0 : 0.72), glow) * vFade;',
+    '  gl_FragColor = vec4(c * a, a);',
+    '}'
+  ].join('\n');
+
   function compile(gl, type, src) {
     const s = gl.createShader(type);
     gl.shaderSource(s, src);
@@ -340,6 +399,9 @@
     const star = program(gl, STAR_VS, STAR_FS, ['uC2V', 'uC', 'uFs', 'uRes', 'uTime', 'uScale']);
     const body = program(gl, BODY_VS, BODY_FS, ['uPos', 'uExt', 'uRes', 'uRad', 'uLight', 'uPole', 'uKind', 'uCol', 'uCol2']);
     const earth = program(gl, QUAD_VS, EARTH_FS, ['uC', 'uF', 'uD', 'uRot', 'uSun', 'uHome', 'uHalo', 'uSunPx', 'uRpx', 'uDay', 'uNight', 'uWater', 'uClouds']);
+    const plane = program(gl, PLANE_VS, PLANE_FS, ['uE2V', 'uC', 'uF', 'uD', 'uNow', 'uPx', 'uRes', 'uCol', 'uSel']);
+    const planeBuf = gl.createBuffer();
+    let planes = [], planeCount = 0, planeBase = 0, selected = null, hovered = null, route = null;
 
     const quad = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
@@ -526,8 +588,143 @@
       gl.uniform1i(earth.u.uDay, 0); gl.uniform1i(earth.u.uNight, 1); gl.uniform1i(earth.u.uWater, 2); gl.uniform1i(earth.u.uClouds, 3);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       gl.disableVertexAttribArray(loc);
+
+      // 5. the planes, on the Earth
+      if (planeCount) {
+        gl.useProgram(plane.p);
+        gl.bindBuffer(gl.ARRAY_BUFFER, planeBuf);
+        const aA = gl.getAttribLocation(plane.p, 'aA'), aB = gl.getAttribLocation(plane.p, 'aB');
+        gl.enableVertexAttribArray(aA); gl.enableVertexAttribArray(aB);
+        gl.vertexAttribPointer(aA, 4, gl.FLOAT, false, 32, 0);
+        gl.vertexAttribPointer(aB, 4, gl.FLOAT, false, 32, 16);
+        gl.uniformMatrix3fv(plane.u.uE2V, false, gl3(tr(fr.R)));
+        gl.uniform2f(plane.u.uC, cx, cy); gl.uniform1f(plane.u.uF, f); gl.uniform1f(plane.u.uD, DIST);
+        gl.uniform1f(plane.u.uNow, lastNow / 1000 - planeBase);
+        gl.uniform1f(plane.u.uPx, Math.max(5, lay.r * 0.012) * k);
+        gl.uniform2f(plane.u.uRes, sz.w, sz.h);
+        gl.uniform3f(plane.u.uCol, 1.0, 0.85, 0.58);
+        gl.uniform3f(plane.u.uSel, 1.0, 0.93, 0.74);
+        gl.drawArrays(gl.POINTS, 0, planeCount);
+        gl.disableVertexAttribArray(aA); gl.disableVertexAttribArray(aB);
+      }
       if (onFrame) onFrame();
     }
+
+    // ---------- planes ----------
+    // A plane: { hex, cs, lat, lon, track (deg), speed (m/s), t (s, time of the fix), ... }
+
+    /** Where a plane is at a moment (epoch ms): lat, lon (deg), heading (deg); the same flying-on as the shader. */
+    function planeAt(pl, ms) {
+      const dt = Math.max(0, Math.min(1400, ms / 1000 - pl.t));
+      const la = pl.lat * RAD, lo = pl.lon * RAD, h = pl.track * RAD, a = pl.speed / 6371000 * dt;
+      const p0 = [Math.cos(la) * Math.sin(lo), Math.sin(la), Math.cos(la) * Math.cos(lo)];
+      const nn = [-Math.sin(la) * Math.sin(lo), Math.cos(la), -Math.sin(la) * Math.cos(lo)], ee = [Math.cos(lo), 0, -Math.sin(lo)];
+      const t = [ee[0] * Math.sin(h) + nn[0] * Math.cos(h), ee[1] * Math.sin(h) + nn[1] * Math.cos(h), ee[2] * Math.sin(h) + nn[2] * Math.cos(h)];
+      const p = [p0[0] * Math.cos(a) + t[0] * Math.sin(a), p0[1] * Math.cos(a) + t[1] * Math.sin(a), p0[2] * Math.cos(a) + t[2] * Math.sin(a)];
+      return { lat: Math.asin(Math.max(-1, Math.min(1, p[1]))) / RAD, lon: Math.atan2(p[0], p[2]) / RAD, age: dt };
+    }
+
+    function rebuildPlanes() {
+      const extra = [];
+      if (route) route.forEach(function (d) { extra.push(d); });
+      const n = planes.length + extra.length;
+      const data = new Float32Array(n * 8);
+      planeBase = Math.floor(Date.now() / 1000) - 3600;
+      let i = 0;
+      planes.forEach(function (pl) {
+        const kind = selected && pl.hex === selected ? 1 : hovered && pl.hex === hovered ? 1 : 0;
+        data.set([pl.lat * RAD, pl.lon * RAD, pl.track * RAD, pl.speed / 6371000, pl.t - planeBase, kind, 0, 0], i * 8);
+        i++;
+      });
+      // the selected one last, so it's drawn on top
+      extra.forEach(function (d) { data.set([d.lat * RAD, d.lon * RAD, 0, 0, 0, d.kind, 0, 0], i * 8); i++; });
+      if (selected) {
+        const s = planes.filter(function (pl) { return pl.hex === selected; })[0];
+        if (s) {
+          const arr = new Float32Array(n * 8 + 8);
+          arr.set(data);
+          arr.set([s.lat * RAD, s.lon * RAD, s.track * RAD, s.speed / 6371000, s.t - planeBase, 1, 0, 0], n * 8);
+          gl.bindBuffer(gl.ARRAY_BUFFER, planeBuf);
+          gl.bufferData(gl.ARRAY_BUFFER, arr, gl.DYNAMIC_DRAW);
+          planeCount = n + 1;
+          return;
+        }
+      }
+      gl.bindBuffer(gl.ARRAY_BUFFER, planeBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
+      planeCount = n;
+    }
+
+    function setPlanes(list) { planes = list || []; rebuildPlanes(); if (!running) draw(lastNow); }
+
+    /** The plane under a point on screen (CSS px), within a few pixels, or null. */
+    function planeNear(x, y, radius) {
+      const R = tr(rotation()), f = lay.r * Math.sqrt(DIST * DIST - 1), t = Date.now();
+      let best = null, bd = (radius || 14) * (radius || 14);
+      for (let i = 0; i < planes.length; i++) {
+        const q = planeAt(planes[i], t);
+        if (q.age > 1350) continue;
+        const v = app(R, unit(q.lat, q.lon));
+        if (v[2] < 1 / DIST + 0.05) continue;
+        const z = DIST - v[2], sx = lay.cx + f * v[0] / z, sy = lay.cy - f * v[1] / z;
+        const d = (sx - x) * (sx - x) + (sy - y) * (sy - y);
+        if (d < bd) { bd = d; best = planes[i]; }
+      }
+      return best;
+    }
+
+    /** Where a plane is on screen right now. */
+    function planeScreen(pl) {
+      const q = planeAt(pl, Date.now()), p = project(q.lat, q.lon);
+      p.lat = q.lat; p.lon = q.lon;
+      return p;
+    }
+
+    function setSelected(hex) { if (selected !== hex) { selected = hex; rebuildPlanes(); } }
+    function setHovered(hex) { if (hovered !== hex) { hovered = hex; rebuildPlanes(); if (!running) draw(lastNow); } }
+
+    /** Dots along the great circle from one airport to the other, brighter for the part already flown. */
+    function setRoute(from, to, at) {
+      route = null;
+      if (from && to && from.lat !== null && to.lat !== null) {
+        const a = unit(from.lat, from.lon), b = unit(to.lat, to.lon);
+        const ang = Math.acos(Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2])));
+        if (ang > 0.002) {
+          route = [];
+          const steps = Math.max(8, Math.round(ang / RAD / 0.7));
+          // how far along is the plane? the closest route point to it
+          let doneUpTo = -1;
+          if (at) {
+            const c = unit(at.lat, at.lon);
+            let bd = 9;
+            for (let i = 0; i <= steps; i++) {
+              const p = slerp(a, b, ang, i / steps), d = (p[0] - c[0]) * (p[0] - c[0]) + (p[1] - c[1]) * (p[1] - c[1]) + (p[2] - c[2]) * (p[2] - c[2]);
+              if (d < bd) { bd = d; doneUpTo = i; }
+            }
+          }
+          for (let i = 1; i < steps; i++) {
+            const p = slerp(a, b, ang, i / steps);
+            route.push({ lat: Math.asin(p[1]) / RAD, lon: Math.atan2(p[0], p[2]) / RAD, kind: i <= doneUpTo ? 2 : 3 });
+          }
+          route.push({ lat: from.lat, lon: from.lon, kind: 4 }, { lat: to.lat, lon: to.lon, kind: 4 });
+        }
+      }
+      rebuildPlanes();
+      if (!running) draw(lastNow);
+    }
+
+    function slerp(a, b, ang, u) {
+      const s = Math.sin(ang), wa = Math.sin((1 - u) * ang) / s, wb = Math.sin(u * ang) / s;
+      return [a[0] * wa + b[0] * wb, a[1] * wa + b[1] * wb, a[2] * wa + b[2] * wb];
+    }
+
+    /** Swing the camera to look at a place; it stays there until released. */
+    let held = false;
+    function lookAt(lat, lon) {
+      held = true;
+      flyTo({ lat: Math.max(-70, Math.min(70, lat)), lon: lon }, 0, 1400, false);
+    }
+    function hold(on) { held = !!on; }
 
     /** Where a place on Earth sits on screen (CSS px) and whether it faces us. */
     function project(lat, lon) {
@@ -576,16 +773,21 @@
 
     /** After a drag, stay a while so you can look around, then drift back to the resting view. */
     function release(delayMs) {
+      if (held) return;                                   // looking at a plane: stay until it's closed
+      flyTo(rest, delayMs, 3200, true);
+    }
+
+    function flyTo(target, delayMs, dur, home) {
       cancelAnimationFrame(spring);
-      springOn = true;
+      springOn = home;
       const t0 = performance.now() + (delayMs || 0);
       let from = null, dl = 0;
       const step = function (t) {
         if (t < t0) { spring = requestAnimationFrame(step); return; }
-        if (!from) { from = { lat: view.lat, lon: view.lon }; dl = ((rest.lon - from.lon) % 360 + 540) % 360 - 180; }
-        const p = Math.max(0, Math.min(1, (t - t0) / 3200));
+        if (!from) { from = { lat: view.lat, lon: view.lon }; dl = ((target.lon - from.lon) % 360 + 540) % 360 - 180; }
+        const p = Math.max(0, Math.min(1, (t - t0) / dur));
         const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
-        view.lat = from.lat + (rest.lat - from.lat) * e;
+        view.lat = from.lat + (target.lat - from.lat) * e;
         view.lon = from.lon + dl * e;
         if (!running) draw(lastNow);
         if (p < 1) spring = requestAnimationFrame(step); else springOn = false;
@@ -601,6 +803,8 @@
     return {
       draw: draw, drag: drag, release: release, project: project, bodies: bodies, point: point, layout: layout,
       start: start, stop: stop, setClouds: setClouds, view: view, rest: rest,
+      setPlanes: setPlanes, planeNear: planeNear, planeScreen: planeScreen, planeAt: planeAt, setSelected: setSelected, setHovered: setHovered,
+      setRoute: setRoute, lookAt: lookAt, hold: hold,
       set onReady(f) { onReady = f; if (ready) f(); }, set onFrame(f) { onFrame = f; }
     };
   }

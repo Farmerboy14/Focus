@@ -19,6 +19,7 @@ const { makeDesktop } = require('./lib/desktop');
 const { makePhone } = require('./lib/phone');
 const { DeskInput } = require('./lib/deskinput');
 const { makeClouds } = require('./lib/clouds');
+const { makeFlights } = require('./lib/flights');
 
 // The desktop layer sits under the icons, where Chromium would think it's covered and stop drawing it.
 try { app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion'); } catch (e) { }
@@ -41,7 +42,7 @@ function res(...p) {
 function ui(name) { return path.join(APP_DIR, 'ui', name); }
 const PRELOAD = path.join(APP_DIR, 'preload.js');
 
-let store, model, link, watcher, server, updater, tray, desktop, phone, clouds;
+let store, model, link, watcher, server, updater, tray, desktop, phone, clouds, flights;
 let mainWin = null, widgetWin = null, notnowWin = null;
 let quitting = false;
 let lastFg = null;
@@ -618,6 +619,8 @@ function setupIpc() {
     return 'data:' + type + ';base64,' + fs.readFileSync(live || res('img', name)).toString('base64');
   });
   handle('desk:cloudinfo', function () { return clouds ? clouds.info() : { live: false, at: 0 }; });
+  handle('flights:get', function (known) { return flights && model.settings.desktop ? flights.get(known) : {}; });
+  handle('flights:detail', function (a) { return flights ? flights.detail(a && a.hex, a && a.callsign, !!(a && a.liveOnly)) : { error: 'off' }; });
   handle('desk:action', function (a) {
     a = a || {};
     if (a.what === 'phone') { if (phone) phone.open(); }
@@ -700,6 +703,7 @@ function init() {
     }
   });
   clouds.start();
+  flights = makeFlights({ fetch: function (u, o) { return electron.net.fetch(u, o); }, userDir: USER_DIR, log: log, home: { lat: 40.19, lon: -92.58 } });
   phone = makePhone({
     electron: electron, watcher: watcher, log: log, baseWeb: baseWeb, uiFile: ui, model: model, save: function () { store.save(); },
     widget: function () { return widgetWin && !widgetWin.isDestroyed() ? widgetWin : null; },
