@@ -384,7 +384,7 @@ public class HomeActivity extends Activity {
     }
 
     private View favCell(final String pkg, final String label, boolean on, boolean god) {
-        android.graphics.drawable.Drawable d = Icons.night(this) ? Icons.of(this, pkg, label, true, god) : Apps.icon(this, pkg);
+        android.graphics.drawable.Drawable d = Icons.of(this, pkg, label, true, god);
         LinearLayout cell = cellShell(d, label, on);
         cell.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { openApp(HomeActivity.this, pkg); }

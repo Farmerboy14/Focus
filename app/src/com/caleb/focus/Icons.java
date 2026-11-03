@@ -154,6 +154,7 @@ public final class Icons {
      * With night lines off, the app's own icon.
      */
     public static Drawable of(Context c, String pkg, String label, boolean plate, boolean gold) {
+        if (Apps.isLedger(c, pkg)) return new Picture(c, R.drawable.ledger_icon, 0xFFC4902F);
         if (!night(c)) return Apps.icon(c, pkg);
         return new Night(c, pkg, label, plate, gold);
     }
@@ -257,6 +258,42 @@ public final class Icons {
         }
 
         @Override public void setAlpha(int a) { alpha = a; invalidateSelf(); }
+        @Override public void setColorFilter(ColorFilter cf) { }
+        @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
+    }
+
+    /** A picture on a round tile of its own background colour (the Till & Ledger register). */
+    public static final class Picture extends Drawable {
+        private final android.graphics.Bitmap bmp;
+        private final Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint pic = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+        private final Path clip = new Path();
+        private final RectF dst = new RectF();
+
+        Picture(Context c, int res, int color) {
+            bmp = android.graphics.BitmapFactory.decodeResource(c.getResources(), res);
+            bg.setColor(color);
+        }
+
+        @Override
+        public void draw(Canvas canvas) {
+            Rect b = getBounds();
+            float size = Math.min(b.width(), b.height());
+            if (size <= 0) return;
+            float cx = b.exactCenterX(), cy = b.exactCenterY(), r = size / 2f;
+            canvas.drawCircle(cx, cy, r, bg);
+            if (bmp == null) return;
+            int save = canvas.save();
+            clip.reset();
+            clip.addCircle(cx, cy, r, Path.Direction.CW);
+            canvas.clipPath(clip);
+            float s = size * 0.86f;
+            dst.set(cx - s / 2f, cy - s / 2f, cx + s / 2f, cy + s / 2f);
+            canvas.drawBitmap(bmp, null, dst, pic);
+            canvas.restoreToCount(save);
+        }
+
+        @Override public void setAlpha(int a) { bg.setAlpha(a); pic.setAlpha(a); invalidateSelf(); }
         @Override public void setColorFilter(ColorFilter cf) { }
         @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
     }

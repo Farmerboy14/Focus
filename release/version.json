@@ -1,6 +1,6 @@
 {
-  "code": 14,
-  "name": "1.4",
-  "notes": "Favorite apps on your home screen (tap + to add, hold one to move or remove it), and thin night line icons for every app.",
+  "code": 15,
+  "name": "1.4.1",
+  "notes": "Till & Ledger gets its own register icon on your home screen.",
   "apk": "https://raw.githubusercontent.com/Farmerboy14/focus/main/release/Focus.apk"
 }

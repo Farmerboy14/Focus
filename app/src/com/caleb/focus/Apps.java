@@ -192,6 +192,17 @@ public final class Apps {
         return guitar.contains(pkg);
     }
 
+    private static java.util.Set<String> ledger;
+
+    /** Caleb's Till & Ledger app (any app with "ledger" in its name): it wears his own register icon in Focus. */
+    public static synchronized boolean isLedger(Context c, String pkg) {
+        if (ledger == null || !rejoiceChecked) {
+            ledger = new HashSet<>();
+            for (AppInfo a : launchable(c, false)) if (a.label.toLowerCase(Locale.US).contains("ledger")) ledger.add(a.pkg);
+        }
+        return ledger.contains(pkg);
+    }
+
     public static boolean isRejoiceify(Context c, String pkg) {
         String r = rejoiceify(c);
         return r != null && r.equals(pkg);
