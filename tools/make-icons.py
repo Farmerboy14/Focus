@@ -5,6 +5,7 @@ Every Lawnicons SVG becomes a compact list of strokes and fills that Focus draws
 (no image files, so ten thousand icons fit in a couple of megabytes and stay sharp at any size).
 
 Usage: python3 tools/make-icons.py path/to/lawnicons
+Focus's own icons in tools/icons/*.svg (same style) are added too, listed in the index as "@name".
 Writes app/assets/icons/lines.bin, app/assets/icons/index.txt and app/assets/icons/NOTICE.txt
 
 lines.bin (big-endian):
@@ -83,12 +84,15 @@ def main(root):
         if pkg and pkg not in pkg_to_name and os.path.exists(os.path.join(svgs, name + '.svg')):
             pkg_to_name[pkg] = name
     names = sorted(set(pkg_to_name.values()))
+    extra_dir = os.path.join(HERE, 'icons')
+    extras = sorted(f[:-4] for f in os.listdir(extra_dir) if f.endswith('.svg')) if os.path.isdir(extra_dir) else []
+    names += ['@' + e for e in extras]
     blob = bytearray(b'FLI1' + struct.pack('>I', len(names)))
     number = {}
     bad = 0
     for i, n in enumerate(names):
         try:
-            ops = icon_ops(os.path.join(svgs, n + '.svg'))
+            ops = icon_ops(os.path.join(extra_dir, n[1:] + '.svg') if n.startswith('@') else os.path.join(svgs, n + '.svg'))
         except Exception as e:  # an odd file: an empty icon, so Focus falls back for that app
             print('skip', n, e)
             ops = b''
@@ -104,6 +108,8 @@ def main(root):
     with open(os.path.join(OUT, 'index.txt'), 'w') as f:
         for pkg in sorted(pkg_to_name):
             f.write(pkg + '\t' + str(number[pkg_to_name[pkg]]) + '\n')
+        for e in extras:
+            f.write('@' + e + '\t' + str(number['@' + e]) + '\n')
     with open(os.path.join(OUT, 'NOTICE.txt'), 'w') as f:
         f.write('Night lines icons are converted from Lawnicons (https://github.com/LawnchairLauncher/lawnicons),\n'
                 'Copyright the Lawnicons contributors, licensed under the Apache License 2.0\n'

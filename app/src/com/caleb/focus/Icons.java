@@ -58,6 +58,7 @@ public final class Icons {
         final Context c = ctx.getApplicationContext();
         final Set<String> want = new HashSet<>();
         for (Apps.AppInfo a : Apps.launchable(c, false)) want.add(a.pkg);
+        want.add("@ledger");
         synchronized (Icons.class) {
             if (loadedFor.containsAll(want)) { if (done != null) main.post(done); return; }
             if (done != null) waiting.add(done);
@@ -154,8 +155,10 @@ public final class Icons {
      * With night lines off, the app's own icon.
      */
     public static Drawable of(Context c, String pkg, String label, boolean plate, boolean gold) {
-        if (Apps.isLedger(c, pkg)) return new Picture(c, R.drawable.ledger_icon, 0xFFC4902F);
-        if (!night(c)) return Apps.icon(c, pkg);
+        boolean ledger = Apps.isLedger(c, pkg);
+        if (!night(c)) return ledger ? new Picture(c, R.drawable.ledger_icon, 0xFFC4902F) : Apps.icon(c, pkg);
+        // Till & Ledger: Focus's own line drawing of the register (tools/icons/ledger.svg)
+        if (ledger) return new Night(c, "@ledger", label, plate, gold);
         return new Night(c, pkg, label, plate, gold);
     }
 

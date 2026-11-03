@@ -1,6 +1,6 @@
 {
-  "code": 15,
-  "name": "1.4.1",
-  "notes": "Till & Ledger gets its own register icon on your home screen.",
+  "code": 16,
+  "name": "1.4.2",
+  "notes": "Till & Ledger's icon is now a line drawing of the register, in the same style as your other icons.",
   "apk": "https://raw.githubusercontent.com/Farmerboy14/focus/main/release/Focus.apk"
 }

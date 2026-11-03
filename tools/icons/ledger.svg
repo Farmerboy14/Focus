@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" fill="none" viewBox="0 0 192 192">
+  <!-- Till & Ledger: a vintage cash register, drawn to match Lawnicons (192 grid, 12-unit round strokes) -->
+  <path stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="12" d="M68 78V58c0-15 12-26 28-26s28 11 28 26v20"/>
+  <path stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="12" d="M42 136V86a8 8 0 0 1 8-8h92a8 8 0 0 1 8 8v50"/>
+  <path stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="12" d="M150 100h16v18"/>
+  <rect width="148" height="30" x="22" y="136" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="12" rx="8"/>
+  <path stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="12" d="M84 151h24"/>
+  <path stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="15" d="M72 100h0M96 100h0M120 100h0M84 118h0M108 118h0M96 58h0"/>
+</svg>
