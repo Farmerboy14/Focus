@@ -101,7 +101,12 @@
     'const float PI = 3.14159265;',
     'void main(){',
     '  vec3 c = uV2C * skyDir();',
-    '  vec2 t = vec2(fract(atan(c.x, c.z) / (2.0 * PI)), 0.5 - asin(clamp(c.y, -1.0, 1.0)) / PI);',
+    '  float u = atan(c.x, c.z) / (2.0 * PI);',
+    '#ifdef SEAMFIX',
+    '  float u1 = fract(u), u2 = fract(u + 0.5) - 0.5;',
+    '  u = fwidth(u1) <= fwidth(u2) + 1e-6 ? u1 : u2;',
+    '#endif',
+    '  vec2 t = vec2(u, 0.5 - asin(clamp(c.y, -1.0, 1.0)) / PI);',
     '  float rho = length(gl_FragCoord.xy - uC) / uFs;',
     '  vec3 col = texture2D(uMilky, t).rgb * uGain * smoothstep(2.25, 1.75, rho);',
     '  col += vec3(0.010, 0.013, 0.024);',
@@ -221,25 +226,46 @@
     '}'
   ].join('\n');
 
+  // The Earth. Clouds sit on their own shell a little above the ground, so they drift against the land as the
+  // camera moves and stand out at the edge; they shade themselves on the side away from the Sun.
   const EARTH_FS = [
     'precision highp float;', RAY,
-    'uniform float uD; uniform mat3 uRot; uniform vec3 uSun; uniform vec3 uHome; uniform float uHalo; uniform vec3 uSunPx; uniform float uRpx;',
+    'uniform float uD; uniform mat3 uRot; uniform vec3 uSun; uniform vec3 uHome; uniform float uHomeR; uniform float uHalo; uniform vec3 uSunPx; uniform float uRpx;',
+    'uniform float uCloudH;',
     'uniform sampler2D uDay; uniform sampler2D uNight; uniform sampler2D uWater; uniform sampler2D uClouds;',
     'const float PI = 3.14159265;',
-    'vec2 ll(vec3 n){ return vec2(0.5 + atan(n.x, n.z) / (2.0 * PI), 0.5 - asin(clamp(n.y, -1.0, 1.0)) / PI); }',
+    'vec2 ll(vec3 n){',
+    '  float u = atan(n.x, n.z) / (2.0 * PI);',
+    '  float v = 0.5 - asin(clamp(n.y, -1.0, 1.0)) / PI;',
+    // no seam where the map wraps round: use whichever way of counting longitude doesn't jump here
+    '#ifdef SEAMFIX',
+    '  float u1 = fract(u + 0.5), u2 = fract(u) - 0.5;',
+    '  return vec2(fwidth(u1) <= fwidth(u2) + 1e-6 ? u1 : u2 + 0.5, v);',
+    '#else',
+    '  return vec2(u + 0.5, v);',
+    '#endif',
+    '}',
     'float cloud(vec3 n){ return smoothstep(0.10, 0.85, texture2D(uClouds, ll(n)).r); }',
     'vec3 haloColor(vec3 nE, vec3 dE){',
     '  float lit = clamp(dot(nE, uSun) * 0.8 + 0.35, 0.0, 1.0);',
-    // looking toward the Sun through the air lights it up: a bright blue-white ring at the edge
     '  float fwd = uSunPx.z * exp(-length(gl_FragCoord.xy - uSunPx.xy) / (uRpx * 0.55));',
     '  return vec3(0.36, 0.62, 1.0) * (0.18 + 0.55 * lit) + vec3(0.75, 0.82, 1.0) * fwd * 1.2;',
+    '}',
+    // a cloud lit by the Sun: brighter where thick, a soft shade on the side turned away, orange at sunset
+    'vec3 cloudLight(vec3 nc, float cl, float l){',
+    '  float toward = cloud(normalize(nc + uSun * 0.0035));',
+    '  float relief = clamp((cl - toward) * 1.6, -0.5, 0.5);',
+    '  vec3 c = vec3(1.0, 0.99, 0.97) * (0.06 + 1.1 * clamp(l + 0.04, 0.0, 1.0)) * (0.80 + 0.22 * cl - 0.30 * relief);',
+    '  c += vec3(0.55, 0.24, 0.08) * exp(-pow((l - 0.02) / 0.035, 2.0)) * 0.32;',
+    '  return c;',
     '}',
     'void main(){',
     '  vec3 d = rayDir();',
     '  vec3 O = vec3(0.0, 0.0, uD);',
     '  float b = dot(O, d);',
-    '  float h = sqrt(max(uD * uD - b * b, 0.0));',              // how close the ray passes to the centre
+    '  float h = sqrt(max(uD * uD - b * b, 0.0));',
     '  vec3 dE = uRot * d;',
+    '  float rc = 1.0 + uCloudH;',
     '  if (h >= 1.0) {',
     '    float k = clamp((1.0 + uHalo - h) / uHalo, 0.0, 1.0);',
     '    if (k <= 0.0) { gl_FragColor = vec4(0.0); return; }',
@@ -247,39 +273,47 @@
     '    vec3 hc = haloColor(nE, dE);',
     '    float a = k * k;',
     '    vec3 c = hc * a;',
-    '    gl_FragColor = vec4(c, clamp(max(c.r, max(c.g, c.b)), 0.0, 1.0) * 0.9);',
+    '    float al = clamp(max(c.r, max(c.g, c.b)), 0.0, 1.0) * 0.9;',
+    // just past the ground's edge the ray still crosses the cloud shell: clouds on the skyline
+    '    if (h < rc) {',
+    '      vec3 nc = uRot * normalize(O + (-b - sqrt(max(b * b - (uD * uD - rc * rc), 0.0))) * d);',
+    '      float cl = cloud(nc) * smoothstep(rc, 1.0 + uCloudH * 0.3, h);',
+    '      float l = dot(nc, uSun);',
+    '      vec3 cc = cloudLight(nc, cl, l) * smoothstep(-0.12, 0.05, l);',
+    '      c = mix(c, cc, cl * 0.85); al = max(al, cl * 0.85);',
+    '    }',
+    '    gl_FragColor = vec4(c, al);',
     '    return;',
     '  }',
     '  vec3 p = O + (-b - sqrt(b * b - (uD * uD - 1.0))) * d;',
     '  vec3 n = uRot * p;',
+    '  vec3 nc = uRot * normalize(O + (-b - sqrt(b * b - (uD * uD - rc * rc))) * d);',
     '  vec2 t = ll(n);',
     '  vec3 day = texture2D(uDay, t).rgb;',
     '  vec3 night = texture2D(uNight, t).rgb;',
     '  float water = texture2D(uWater, t).r;',
-    '  float cl = cloud(n);',
-    '  float shadow = cloud(normalize(n + uSun * 0.010));',
+    '  float cl = cloud(nc);',
+    '  float shadow = cloud(normalize(n + uSun * (uCloudH * 1.4 + 0.004)));',
     '  float l = dot(n, uSun);',
     '  float dayMix = smoothstep(-0.10, 0.14, l);',
-    '  vec3 nightBase = night * vec3(0.30, 0.36, 0.58) * (1.0 - 0.5 * cl);',
-    // no dark seam at the terminator: the day side never drops below the night side's own glow
-    '  vec3 dayCol = day * (0.07 + 1.05 * clamp(l, 0.0, 1.0)) * (1.0 - 0.38 * shadow * (1.0 - cl)) + nightBase * 0.85;',
+    // the night map's dim ground, without its city lights (those only show on the dark side)
+    '  vec3 nightBase = min(night, vec3(0.06)) * vec3(0.30, 0.36, 0.58) * (1.0 - 0.5 * cl);',
+    '  vec3 dayCol = day * (0.07 + 1.05 * clamp(l, 0.0, 1.0)) * (1.0 - 0.42 * shadow * (1.0 - cl)) + nightBase * 0.85;',
     '  vec3 lights = max(night - vec3(0.22), vec3(0.0)) * vec3(2.6, 2.1, 1.3) * (1.0 - 0.8 * cl);',
-    '  vec3 nightCol = nightBase + lights + vec3(0.035, 0.045, 0.075) * cl;',
+    '  vec3 nightCol = night * vec3(0.30, 0.36, 0.58) * (1.0 - 0.5 * cl) + lights + vec3(0.035, 0.045, 0.075) * cl;',
     '  vec3 col = mix(nightCol, dayCol, dayMix);',
-    // clouds catch the light: bright white by day, glowing orange along the sunset line
-    '  vec3 cloudCol = vec3(1.0, 0.99, 0.97) * (0.06 + 1.1 * clamp(l + 0.04, 0.0, 1.0));',
-    '  cloudCol += vec3(0.55, 0.24, 0.08) * exp(-pow((l - 0.02) / 0.035, 2.0)) * 0.32;',
-    '  col = mix(col, cloudCol, cl * 0.92 * smoothstep(-0.12, 0.05, l));',
-    '  col += vec3(0.38, 0.15, 0.04) * exp(-pow((l - 0.03) / 0.04, 2.0)) * 0.16 * (1.0 - cl);',
     '  vec3 view = -dE;',
     '  vec3 hv = normalize(uSun + view);',
     '  float sh = max(dot(n, hv), 0.0);',
-    '  col += vec3(1.0, 0.93, 0.80) * pow(sh, 220.0) * 0.24 * water * dayMix * (1.0 - cl);',
+    '  col += vec3(1.0, 0.93, 0.80) * (pow(sh, 220.0) * 0.24 + pow(sh, 40.0) * 0.02) * water * dayMix * (1.0 - cl);',
+    '  float lc = dot(nc, uSun);',
+    '  col = mix(col, cloudLight(nc, cl, lc), cl * 0.92 * smoothstep(-0.12, 0.05, lc));',
+    '  col += vec3(0.38, 0.15, 0.04) * exp(-pow((l - 0.03) / 0.04, 2.0)) * 0.16 * (1.0 - cl);',
     '  float mu = clamp(dot(p, -d), 0.0, 1.0);',
     '  float rim = pow(1.0 - mu, 2.6);',
     '  col = mix(col, vec3(0.42, 0.66, 1.0), rim * (0.25 + 0.5 * dayMix) * 0.8);',
     '  float ang = acos(clamp(dot(n, uHome), -1.0, 1.0));',
-    '  col = mix(col, vec3(0.95, 0.83, 0.54), smoothstep(0.0135, 0.0095, ang));',
+    '  col = mix(col, vec3(0.95, 0.83, 0.54), smoothstep(uHomeR * 1.17, uHomeR * 0.83, ang));',
     '  col = mix(col, haloColor(n, dE), smoothstep(0.985, 1.0, h) * 0.85);',
     '  gl_FragColor = vec4(col, 1.0);',
     '}'
@@ -346,6 +380,8 @@
 
   function compile(gl, type, src) {
     const s = gl.createShader(type);
+    // fragment shaders get screen-space derivatives when the GPU has them, for seamless mipmapped maps
+    if (type === gl.FRAGMENT_SHADER && gl.__seam) src = '#extension GL_OES_standard_derivatives : enable\n#define SEAMFIX 1\n' + src;
     gl.shaderSource(s, src);
     gl.compileShader(s);
     if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
@@ -394,11 +430,14 @@
   function Scene(canvas, opts) {
     const gl = canvas.getContext('webgl', { premultipliedAlpha: true, alpha: false, antialias: false, preserveDrawingBuffer: true });
     if (!gl) throw new Error('no WebGL');
+    gl.__seam = !!gl.getExtension('OES_standard_derivatives');
+    const aniso = gl.getExtension('EXT_texture_filter_anisotropic');
+    const MAXTEX = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
     const SKY = opts.sky;
     const sky = program(gl, QUAD_VS, SKY_FS, ['uC', 'uFs', 'uV2C', 'uSunC', 'uMilky', 'uGain']);
     const star = program(gl, STAR_VS, STAR_FS, ['uC2V', 'uC', 'uFs', 'uRes', 'uTime', 'uScale']);
     const body = program(gl, BODY_VS, BODY_FS, ['uPos', 'uExt', 'uRes', 'uRad', 'uLight', 'uPole', 'uKind', 'uCol', 'uCol2']);
-    const earth = program(gl, QUAD_VS, EARTH_FS, ['uC', 'uF', 'uD', 'uRot', 'uSun', 'uHome', 'uHalo', 'uSunPx', 'uRpx', 'uDay', 'uNight', 'uWater', 'uClouds']);
+    const earth = program(gl, QUAD_VS, EARTH_FS, ['uC', 'uF', 'uD', 'uRot', 'uSun', 'uHome', 'uHomeR', 'uCloudH', 'uHalo', 'uSunPx', 'uRpx', 'uDay', 'uNight', 'uWater', 'uClouds']);
     const plane = program(gl, PLANE_VS, PLANE_FS, ['uE2V', 'uC', 'uF', 'uD', 'uNow', 'uPx', 'uRes', 'uCol', 'uSel']);
     const planeBuf = gl.createBuffer();
     let planes = [], planeCount = 0, planeBase = 0, selected = null, hovered = null, route = null;
@@ -427,24 +466,50 @@
     const rest = { lat: 24, lon: home.lon + 22 };
     const view = { lat: rest.lat, lon: rest.lon };
     const sway = { x: 0, y: 0, tx: 0, ty: 0 };
+    // zoom: the camera moves in toward the Earth; 1 is the resting distance
+    const MIN_DIST = 1.25;
+    let dist = DIST, distTarget = DIST, anchor = null;
+    function zoom() { return Math.sqrt(DIST * DIST - 1) / Math.sqrt(dist * dist - 1); }
     const tex = {};
     let ready = false, onReady = null, onFrame = null, spring = 0, raf = 0, running = false, lastFrame = 0;
     let lay = { cx: 0, cy: 0, r: 100 }, lastNow = Date.now(), skyAt = null, frameInfo = null;
 
-    function texture(name, unitN, img, wrapS) {
+    function pot(n) { return n > 0 && (n & (n - 1)) === 0; }
+
+    /** An image no bigger than the GPU (or `cap`) takes, shrunk on a canvas when it has to be. */
+    function fit(img, cap) {
+      const lim = Math.min(MAXTEX, cap || MAXTEX);
+      const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+      if (w <= lim && h <= lim) return img;
+      const k = lim / Math.max(w, h);
+      const c = document.createElement('canvas');
+      c.width = Math.round(w * k); c.height = Math.round(h * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      return c;
+    }
+
+    /** Uploads a map with mipmaps and anisotropic filtering, so it stays crisp at any size and angle. grey: one channel. */
+    function texture(name, unitN, img, grey, cap) {
       if (!tex[name]) tex[name] = gl.createTexture();
+      const src = fit(img, cap);
       gl.activeTexture(gl.TEXTURE0 + unitN);
       gl.bindTexture(gl.TEXTURE_2D, tex[name]);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      const fmt = grey ? gl.LUMINANCE : gl.RGB;
+      gl.texImage2D(gl.TEXTURE_2D, 0, fmt, fmt, gl.UNSIGNED_BYTE, src);
+      const w = src.naturalWidth || src.width, h = src.naturalHeight || src.height;
+      const mip = pot(w) && pot(h);
+      if (mip) gl.generateMipmap(gl.TEXTURE_2D);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, mip ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapS === false ? gl.CLAMP_TO_EDGE : gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, mip ? gl.REPEAT : gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      if (aniso && mip) gl.texParameterf(gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT) || 1));
     }
     const UNITS = { day: 0, night: 1, water: 2, clouds: 3, milky: 4 };
     const im = opts.images;
     Promise.all([loadImage(im.day), loadImage(im.night), loadImage(im.water), loadImage(im.milky)]).then(function (ims) {
-      texture('day', 0, ims[0]); texture('night', 1, ims[1]); texture('water', 2, ims[2]); texture('milky', 4, ims[3]);
+      // the night lights and the water mask don't need the day map's detail; keeping them at 4096 saves memory
+      texture('day', 0, ims[0]); texture('night', 1, ims[1], false, 4096); texture('water', 2, ims[2], true, 4096); texture('milky', 4, ims[3]);
       // clouds are optional; until they arrive the sky is clear
       const blank = new Uint8Array([0, 0, 0, 255]);
       if (!tex.clouds) {
@@ -452,6 +517,7 @@
         gl.activeTexture(gl.TEXTURE3);
         gl.bindTexture(gl.TEXTURE_2D, tex.clouds);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, blank);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
       }
       return setClouds(im.clouds).catch(function () { });
     }).then(function () {
@@ -461,7 +527,16 @@
     }).catch(function (e) { console.warn(e.message); });
 
     function setClouds(src) {
-      return loadImage(src).then(function (img) { texture('clouds', 3, img); if (ready) draw(lastNow); });
+      return loadImage(src).then(function (img) { texture('clouds', 3, img, true); if (ready) draw(lastNow); });
+    }
+
+    /** Swap in sharper maps when they arrive (the month's 8K Blue Marble). Any of day, night, water. */
+    function setMaps(srcs) {
+      const jobs = [];
+      if (srcs.day) jobs.push(loadImage(srcs.day).then(function (i) { texture('day', 0, i); }));
+      if (srcs.night) jobs.push(loadImage(srcs.night).then(function (i) { texture('night', 1, i, false, 4096); }));
+      if (srcs.water) jobs.push(loadImage(srcs.water).then(function (i) { texture('water', 2, i, true, 4096); }));
+      return Promise.all(jobs).then(function () { if (ready && !running) draw(lastNow); });
     }
 
     // view → earth: Ry(lon) · Rx(-lat)
@@ -504,7 +579,7 @@
         const v = app(c2v, norm(b.pos));
         const th = Math.acos(Math.max(-1, Math.min(1, -v[2]))), l = Math.hypot(v[0], v[1]) || 1e-9;
         const x = lay.cx + fs * th * v[0] / l, y = lay.cy - fs * th * v[1] / l;
-        const behind = Math.hypot(x - lay.cx, y - lay.cy) < lay.r * 1.02;   // hidden by the Earth
+        const behind = Math.hypot(x - lay.cx, y - lay.cy) < lay.r * zoom() * 1.02;   // hidden by the Earth
         const look = LOOKS[b.id];
         out.push({ id: b.id, name: b.name, x: x, y: y, v: v, behind: behind, r: look ? look.size * lay.r : 0, body: b,
           onScreen: th < 3.0 && x > -40 && y > -40 && x < canvas.clientWidth + 40 && y < canvas.clientHeight + 40 });
@@ -577,14 +652,15 @@
       // 4. the Earth and its air, over everything
       gl.useProgram(earth.p);
       loc = quadAttr(earth);
-      gl.uniform2f(earth.u.uC, cx, cy); gl.uniform1f(earth.u.uF, f); gl.uniform1f(earth.u.uD, DIST);
+      gl.uniform2f(earth.u.uC, cx, cy); gl.uniform1f(earth.u.uF, f); gl.uniform1f(earth.u.uD, dist);
+      gl.uniform1f(earth.u.uHomeR, 0.0115 / zoom()); gl.uniform1f(earth.u.uCloudH, 0.0055);
       gl.uniformMatrix3fv(earth.u.uRot, false, gl3(fr.R));
       gl.uniform3fv(earth.u.uSun, fr.sunE);
       gl.uniform3fv(earth.u.uHome, homeV);
       gl.uniform1f(earth.u.uHalo, 0.085);
       const sun = fr.bodies[0];
       gl.uniform3f(earth.u.uSunPx, sun.x * k, sz.h - sun.y * k, sun.onScreen ? 1 : 0);
-      gl.uniform1f(earth.u.uRpx, lay.r * k);
+      gl.uniform1f(earth.u.uRpx, lay.r * zoom() * k);
       gl.uniform1i(earth.u.uDay, 0); gl.uniform1i(earth.u.uNight, 1); gl.uniform1i(earth.u.uWater, 2); gl.uniform1i(earth.u.uClouds, 3);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       gl.disableVertexAttribArray(loc);
@@ -598,9 +674,9 @@
         gl.vertexAttribPointer(aA, 4, gl.FLOAT, false, 32, 0);
         gl.vertexAttribPointer(aB, 4, gl.FLOAT, false, 32, 16);
         gl.uniformMatrix3fv(plane.u.uE2V, false, gl3(tr(fr.R)));
-        gl.uniform2f(plane.u.uC, cx, cy); gl.uniform1f(plane.u.uF, f); gl.uniform1f(plane.u.uD, DIST);
+        gl.uniform2f(plane.u.uC, cx, cy); gl.uniform1f(plane.u.uF, f); gl.uniform1f(plane.u.uD, dist);
         gl.uniform1f(plane.u.uNow, lastNow / 1000 - planeBase);
-        gl.uniform1f(plane.u.uPx, Math.max(5, lay.r * 0.012) * k);
+        gl.uniform1f(plane.u.uPx, Math.max(5, lay.r * 0.012 * Math.pow(zoom(), 0.4)) * k);
         gl.uniform2f(plane.u.uRes, sz.w, sz.h);
         gl.uniform3f(plane.u.uCol, 1.0, 0.85, 0.58);
         gl.uniform3f(plane.u.uSel, 1.0, 0.93, 0.74);
@@ -665,8 +741,8 @@
         const q = planeAt(planes[i], t);
         if (q.age > 1350) continue;
         const v = app(R, unit(q.lat, q.lon));
-        if (v[2] < 1 / DIST + 0.05) continue;
-        const z = DIST - v[2], sx = lay.cx + f * v[0] / z, sy = lay.cy - f * v[1] / z;
+        if (v[2] < 1 / dist + 0.05) continue;
+        const z = dist - v[2], sx = lay.cx + f * v[0] / z, sy = lay.cy - f * v[1] / z;
         const d = (sx - x) * (sx - x) + (sy - y) * (sy - y);
         if (d < bd) { bd = d; best = planes[i]; }
       }
@@ -730,8 +806,8 @@
     function project(lat, lon) {
       const v = app(tr(rotation()), unit(lat, lon));
       const f = lay.r * Math.sqrt(DIST * DIST - 1);
-      const z = DIST - v[2];
-      return { x: lay.cx + f * v[0] / z, y: lay.cy - f * v[1] / z, visible: v[2] > 1 / DIST + 0.04 };
+      const z = dist - v[2];
+      return { x: lay.cx + f * v[0] / z, y: lay.cy - f * v[1] / z, visible: v[2] > 1 / dist + 0.04 };
     }
 
     /** The Sun, Moon and planets that are on screen and not behind the Earth, for labels (CSS px). */
@@ -748,6 +824,7 @@
       if (t - lastFrame < 33) return;                // 30 frames a second is plenty for a wallpaper
       lastFrame = t;
       sway.x += (sway.tx - sway.x) * 0.06; sway.y += (sway.ty - sway.y) * 0.06;
+      stepZoom();
       draw(Date.now());
     }
 
@@ -764,7 +841,7 @@
     }
 
     function drag(dx, dy) {
-      const r = Math.max(60, lay.r);
+      const r = Math.max(60, lay.r * zoom());
       view.lon -= dx / r * 50;
       view.lat = Math.max(-82, Math.min(82, view.lat + dy / r * 50));
       cancelAnimationFrame(spring); springOn = false; resumeDrift = false;
@@ -784,11 +861,12 @@
       let from = null, dl = 0;
       const step = function (t) {
         if (t < t0) { spring = requestAnimationFrame(step); return; }
-        if (!from) { from = { lat: view.lat, lon: view.lon }; dl = ((target.lon - from.lon) % 360 + 540) % 360 - 180; }
+        if (!from) { from = { lat: view.lat, lon: view.lon, dist: dist }; dl = ((target.lon - from.lon) % 360 + 540) % 360 - 180; anchor = null; }
         const p = Math.max(0, Math.min(1, (t - t0) / dur));
         const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
         view.lat = from.lat + (target.lat - from.lat) * e;
         view.lon = from.lon + dl * e;
+        if (home) { dist = from.dist + (DIST - from.dist) * e; distTarget = dist; }   // going home zooms back out too
         if (!running) draw(lastNow);
         if (p < 1) spring = requestAnimationFrame(step); else springOn = false;
       };
@@ -796,7 +874,48 @@
     }
 
     /** The mouse leans the camera a little (nx, ny from -1 to 1). */
-    function point(nx, ny) { sway.tx = nx * 1.6; sway.ty = -ny * 1.0; }
+    function point(nx, ny) { const z = zoom(); sway.tx = nx * 1.6 / z; sway.ty = -ny * 1.0 / z; }
+
+    /** The place on Earth under a point on screen (CSS px), or null if it's sky. */
+    function placeAt(x, y) {
+      const f = lay.r * Math.sqrt(DIST * DIST - 1);
+      const d = norm([(x - lay.cx) / f, -(y - lay.cy) / f, -1]);
+      const b = dist * d[2], disc = b * b - (dist * dist - 1);
+      if (disc < 0) return null;
+      const t = -b - Math.sqrt(disc);
+      const p = app(rotation(), [d[0] * t, d[1] * t, dist + d[2] * t]);
+      return { lat: Math.asin(Math.max(-1, Math.min(1, p[1]))) / RAD, lon: Math.atan2(p[0], p[2]) / RAD };
+    }
+
+    /** Zoom by a factor (more than 1 is closer), keeping the place under (x, y) where it is. */
+    function zoomBy(k, x, y) {
+      const z = Math.max(1, Math.min(Math.sqrt(DIST * DIST - 1) / Math.sqrt(MIN_DIST * MIN_DIST - 1), zoomOf(distTarget) * k));
+      distTarget = Math.sqrt((DIST * DIST - 1) / (z * z) + 1);
+      const at = x === undefined ? null : placeAt(x, y);
+      anchor = at ? { x: x, y: y, lat: at.lat, lon: at.lon } : null;
+      cancelAnimationFrame(spring); springOn = false; resumeDrift = false;
+      if (!running) { dist = distTarget; keepAnchor(); draw(lastNow); }
+    }
+    function zoomOf(d) { return Math.sqrt(DIST * DIST - 1) / Math.sqrt(d * d - 1); }
+
+    function keepAnchor() {
+      if (!anchor) return;
+      for (let i = 0; i < 3; i++) {
+        const cur = placeAt(anchor.x, anchor.y);
+        if (!cur) return;
+        view.lat = Math.max(-82, Math.min(82, view.lat + (anchor.lat - cur.lat)));
+        view.lon += ((anchor.lon - cur.lon) % 360 + 540) % 360 - 180;
+      }
+    }
+
+    let zoomT = 0;
+    function stepZoom() {
+      const t = performance.now(), dt = Math.min(0.5, (t - (zoomT || t)) / 1000);
+      zoomT = t;
+      if (Math.abs(dist - distTarget) < 1e-4) { if (dist !== distTarget) { dist = distTarget; keepAnchor(); } return; }
+      dist += (distTarget - dist) * (1 - Math.exp(-dt / 0.12));   // smooth, and just as quick at any frame rate
+      keepAnchor();
+    }
 
     function layout(cx, cy, r) { lay = { cx: cx, cy: cy, r: r }; if (!running) draw(lastNow); }
 
@@ -804,7 +923,7 @@
       draw: draw, drag: drag, release: release, project: project, bodies: bodies, point: point, layout: layout,
       start: start, stop: stop, setClouds: setClouds, view: view, rest: rest,
       setPlanes: setPlanes, planeNear: planeNear, planeScreen: planeScreen, planeAt: planeAt, setSelected: setSelected, setHovered: setHovered,
-      setRoute: setRoute, lookAt: lookAt, hold: hold,
+      setRoute: setRoute, lookAt: lookAt, hold: hold, zoomBy: zoomBy, zoom: zoom, setMaps: setMaps, placeAt: placeAt,
       set onReady(f) { onReady = f; if (ready) f(); }, set onFrame(f) { onFrame = f; }
     };
   }

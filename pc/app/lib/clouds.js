@@ -5,7 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const URL = 'https://clouds.matteason.co.uk/images/2048x1024/clouds.jpg';
+const URL = 'https://clouds.matteason.co.uk/images/8192x4096/clouds.jpg';  // full detail, for zooming in
 const EVERY = 3 * 60 * 60 * 1000;
 const RETRY = 20 * 60 * 1000;
 

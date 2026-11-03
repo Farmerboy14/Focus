@@ -8,7 +8,7 @@ const CALLS = [
   'update:restart', 'procs:refresh', 'log:open', 'win:minimize', 'win:close', 'win:fullscreen', 'widget:move',
   'widget:open', 'notnow:pass', 'notnow:close', 'notnow:back', 'desk:drawn', 'phone:collapse', 'phone:shrunk', 'phone:retry', 'phone:choose', 'desk:image', 'desk:cloudinfo', 'flights:get', 'flights:detail', 'desk:action'
 ];
-const EVENTS = ['state', 'nav', 'notnow:show', 'fullscreen', 'phone:show', 'phone:shrink', 'phone:status', 'desk:pause', 'desk:clouds'];
+const EVENTS = ['state', 'nav', 'notnow:show', 'fullscreen', 'phone:show', 'phone:shrink', 'phone:status', 'desk:pause', 'desk:clouds', 'desk:maps'];
 
 contextBridge.exposeInMainWorld('focusApp', {
   invoke: function (name, arg) {

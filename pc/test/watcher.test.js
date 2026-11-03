@@ -36,4 +36,18 @@ test('the embedded C# compiles as C# 5 (Windows PowerShell 5.1)', () => {
   execFileSync(mcs, ['-langversion:5', '-target:library', '-out:' + path.join(dir, 'f.dll'), path.join(dir, 'f.cs')], { stdio: 'pipe' });
 });
 
+test('the desktop input helper (mouse and wheel) compiles as C# 5 too, and never uses $ (PowerShell would expand it)', () => {
+  const D = require('../app/lib/deskinput');
+  const a = D.SCRIPT.indexOf('@"') + 2, b = D.SCRIPT.indexOf('"@');
+  const cs = D.SCRIPT.slice(a, b);
+  assert.ok(cs.indexOf('$') < 0, 'no $ inside the C#');
+  assert.ok(/WH_MOUSE_LL/.test(cs) && /CallNextHookEx\(hook, code, w, l\)/.test(cs), 'the wheel hook passes every event on');
+  let mcs = '';
+  try { mcs = execFileSync('which', ['mcs']).toString().trim(); } catch (e) { }
+  if (!mcs) { console.log('       (mcs not installed, skipped)'); return; }
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'focus-cs-'));
+  fs.writeFileSync(path.join(dir, 'd.cs'), cs);
+  execFileSync(mcs, ['-langversion:5', '-target:library', '-out:' + path.join(dir, 'd.dll'), path.join(dir, 'd.cs')], { stdio: 'pipe' });
+});
+
 run('watcher');

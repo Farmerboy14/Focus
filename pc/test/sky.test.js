@@ -77,7 +77,7 @@ test('live clouds: a new map is saved and announced; the same map again is not',
   assert.strictEqual(await c.check(), false, 'not a JPEG');
   assert.strictEqual(await c.check(), false, 'server error');
   assert.ok(c.file() && fs.statSync(c.file()).size === 90000, 'the last good map is kept');
-  assert.ok(/clouds\.matteason\.co\.uk\/images\/2048x1024\/clouds\.jpg$/.test(calls[0]));
+  assert.ok(/clouds\.matteason\.co\.uk\/images\/8192x4096\/clouds\.jpg$/.test(calls[0]));
   c.stop();
 });
 

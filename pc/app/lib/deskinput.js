@@ -1,7 +1,9 @@
 'use strict';
 // Lets the desktop layer feel the mouse. It sits under the icons, so Windows never sends it clicks; this small
 // helper watches the pointer, and while it's over the bare desktop it reports moves and left clicks, which
-// desktop.js passes into the page. Real pixels, one line per change: "m x y", "d x y", "u x y", "l" (left the desktop).
+// desktop.js passes into the page. Real pixels, one line per change: "m x y", "d x y", "u x y", "l" (left the desktop),
+// and "w x y delta" for the scroll wheel (from a low-level mouse hook, which only listens; the wheel still reaches
+// whatever it was meant for).
 const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -25,6 +27,36 @@ public static class FocusDeskInput {
   [DllImport("user32.dll")] static extern IntPtr GetAncestor(IntPtr h, uint f);
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, StringBuilder s, int n);
   [DllImport("user32.dll")] static extern IntPtr SetThreadDpiAwarenessContext(IntPtr c);
+  [StructLayout(LayoutKind.Sequential)] public struct MSG { public IntPtr hwnd; public uint message; public IntPtr wParam; public IntPtr lParam; public uint time; public POINT pt; }
+  [StructLayout(LayoutKind.Sequential)] public struct MSLL { public POINT pt; public uint mouseData; public uint flags; public uint time; public IntPtr extra; }
+  public delegate IntPtr HookProc(int code, IntPtr w, IntPtr l);
+  [DllImport("user32.dll")] static extern IntPtr SetWindowsHookEx(int id, HookProc fn, IntPtr mod, uint thread);
+  [DllImport("user32.dll")] static extern IntPtr CallNextHookEx(IntPtr h, int code, IntPtr w, IntPtr l);
+  [DllImport("user32.dll")] static extern int GetMessage(out MSG m, IntPtr h, uint a, uint b);
+  [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern IntPtr GetModuleHandle(string name);
+  static HookProc keep;
+  static IntPtr hook = IntPtr.Zero;
+
+  // The wheel over the bare desktop: report it, and always pass it on untouched.
+  static IntPtr OnMouse(int code, IntPtr w, IntPtr l) {
+    try {
+      if (code >= 0 && w.ToInt64() == 0x020A) {
+        MSLL m = (MSLL)Marshal.PtrToStructure(l, typeof(MSLL));
+        int delta = (short)((m.mouseData >> 16) & 0xFFFF);
+        if (delta != 0 && OverDesktop(m.pt)) { Console.Out.WriteLine("w " + m.pt.X + " " + m.pt.Y + " " + delta); Console.Out.Flush(); }
+      }
+    } catch (Exception) { }
+    return CallNextHookEx(hook, code, w, l);
+  }
+
+  static void Pump() {
+    try { SetThreadDpiAwarenessContext(new IntPtr(-4)); } catch (Exception) { }
+    keep = new HookProc(OnMouse);
+    hook = SetWindowsHookEx(14, keep, GetModuleHandle(null), 0);   // WH_MOUSE_LL
+    if (hook == IntPtr.Zero) return;
+    MSG msg;
+    while (GetMessage(out msg, IntPtr.Zero, 0, 0) > 0) { }
+  }
   static string Cls(IntPtr h) { var sb = new StringBuilder(128); GetClassName(h, sb, 128); return sb.ToString(); }
 
   // The bare desktop: the icon view, or Explorer's wallpaper windows. Our own window only shows up here when
@@ -36,6 +68,9 @@ public static class FocusDeskInput {
 
   public static void Run(int owner) {
     try { SetThreadDpiAwarenessContext(new IntPtr(-4)); } catch (Exception) { }
+    var wheel = new System.Threading.Thread(Pump);
+    wheel.IsBackground = true;
+    wheel.Start();
     int swap = GetSystemMetrics(23); // left-handed mouse: the primary button is the right one
     int btn = swap != 0 ? 0x02 : 0x01;
     POINT last = new POINT(); bool over = false, down = false, sentDown = false;

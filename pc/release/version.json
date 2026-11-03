@@ -1,6 +1,6 @@
 {
-  "version": 15,
-  "name": "1.9",
+  "version": 16,
+  "name": "1.10",
   "minBootstrap": 1,
-  "notes": "Live flights on the Earth: every plane in the air, flying in real time. Click one to see its airline, route, aircraft and how far it has to go."
+  "notes": "Scroll to zoom in on the Earth. Sharper 8K maps of this month's Earth, and full-detail live clouds that float above the ground."
 }

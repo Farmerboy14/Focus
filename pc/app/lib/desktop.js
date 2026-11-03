@@ -70,6 +70,11 @@ function makeDesktop(o) {
     if (kind === 'm') wc.sendInputEvent({ type: 'mouseMove', x: x, y: y, modifiers: pressed ? ['leftButtonDown'] : [] });
     else if (kind === 'd') { pressed = true; wc.sendInputEvent({ type: 'mouseDown', x: x, y: y, button: 'left', clickCount: 1 }); }
     else if (kind === 'u') { pressed = false; wc.sendInputEvent({ type: 'mouseUp', x: x, y: y, button: 'left', clickCount: 1 }); }
+    else if (kind === 'w') {
+      // Windows: +120 a notch away from you. Electron's +deltaY is the same direction (the page sees it as scrolling up).
+      const delta = Number(parts[3]) || 0;
+      if (delta) wc.sendInputEvent({ type: 'mouseWheel', x: x, y: y, deltaX: 0, deltaY: delta, wheelTicksX: 0, wheelTicksY: delta / 120, canScroll: true });
+    }
   }
 
   // ---------- resting when no one can see it ----------

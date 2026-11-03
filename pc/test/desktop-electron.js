@@ -114,6 +114,19 @@ app.whenReady().then(async function () {
     ok(homeBefore !== after && parseFloat(after) > parseFloat(homeBefore), 'dragging flies the camera around the Earth (home marker ' + homeBefore + ' -> ' + after + ')');
     const lab = await w.webContents.executeJavaScript('document.querySelectorAll(".blabel").length + "|" + document.body.classList.contains("gl")');
     ok(/\|true$/.test(lab), 'space is drawn with WebGL, with ' + lab.split('|')[0] + ' named worlds placed so far');
+    // The scroll wheel zooms in toward the pointer: Kirksville moves away from the Earth's centre
+    await sleep(500);
+    const homeOff = function () { return w.webContents.executeJavaScript('(function(){var h=document.getElementById("home"),e=document.getElementById("earth").getBoundingClientRect();return Math.hypot(parseFloat(h.style.left)-e.width/2,parseFloat(h.style.top)-e.height/2)})()'); };
+    const off0 = await homeOff();
+    d.input('m ' + g[0] + ' ' + g[1]);
+    for (let k = 0; k < 4; k++) { d.input('w ' + g[0] + ' ' + g[1] + ' 120'); await sleep(80); }
+    await sleep(1500);
+    const off1 = await homeOff();
+    ok(off1 > off0 * 1.3, 'scrolling the wheel forward zooms in (Kirksville ' + Math.round(off0) + ' -> ' + Math.round(off1) + ' px from the centre)');
+    for (let k = 0; k < 8; k++) { d.input('w ' + g[0] + ' ' + g[1] + ' -120'); await sleep(80); }
+    await sleep(1500);
+    const off2 = await homeOff();
+    ok(off2 < off1 * 0.85, 'and back toward you zooms out again (' + Math.round(off2) + ' px)');
     d.input('l');
     // Click the plane over Kirksville: its details open
     await sleep(2500);

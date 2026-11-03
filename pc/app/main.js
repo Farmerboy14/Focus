@@ -20,6 +20,7 @@ const { makePhone } = require('./lib/phone');
 const { DeskInput } = require('./lib/deskinput');
 const { makeClouds } = require('./lib/clouds');
 const { makeFlights } = require('./lib/flights');
+const { makeEarthMaps } = require('./lib/earthmaps');
 
 // The desktop layer sits under the icons, where Chromium would think it's covered and stop drawing it.
 try { app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion'); } catch (e) { }
@@ -42,7 +43,7 @@ function res(...p) {
 function ui(name) { return path.join(APP_DIR, 'ui', name); }
 const PRELOAD = path.join(APP_DIR, 'preload.js');
 
-let store, model, link, watcher, server, updater, tray, desktop, phone, clouds, flights;
+let store, model, link, watcher, server, updater, tray, desktop, phone, clouds, flights, earthMaps;
 let mainWin = null, widgetWin = null, notnowWin = null;
 let quitting = false;
 let lastFg = null;
@@ -614,9 +615,13 @@ function setupIpc() {
   handle('desk:image', function (name) {
     const type = DESK_IMAGES[name];
     if (!type) return '';
-    // the clouds: the latest live map when there is one, else the made-up map that ships with Focus
-    const live = name === 'earth_clouds.jpg' && clouds ? clouds.file() : null;
-    return 'data:' + type + ';base64,' + fs.readFileSync(live || res('img', name)).toString('base64');
+    // the clouds: the latest live map when there is one, else the made-up map that ships with Focus;
+    // the Earth: this month's 8K maps once they've been fetched
+    const MAPS = { 'earth_day.jpg': 'day', 'earth_night.jpg': 'night', 'earth_water.png': 'water' };
+    let live = name === 'earth_clouds.jpg' && clouds ? clouds.file() : null;
+    if (MAPS[name] && earthMaps) live = earthMaps.file(MAPS[name]);
+    const t = live && /\.jpg$/.test(live) ? 'image/jpeg' : type;
+    return 'data:' + t + ';base64,' + fs.readFileSync(live || res('img', name)).toString('base64');
   });
   handle('desk:cloudinfo', function () { return clouds ? clouds.info() : { live: false, at: 0 }; });
   handle('flights:get', function (known) { return flights && model.settings.desktop ? flights.get(known) : {}; });
@@ -703,6 +708,12 @@ function init() {
     }
   });
   clouds.start();
+  earthMaps = makeEarthMaps({
+    fetch: function (u, o) { return electron.net.fetch(u, o); }, userDir: USER_DIR, log: log,
+    enabled: function () { return !!model.settings.desktop; },
+    onNew: function () { desktop.windows().forEach(function (w) { if (!w.isDestroyed()) w.webContents.send('desk:maps', true); }); }
+  });
+  earthMaps.start();
   flights = makeFlights({ fetch: function (u, o) { return electron.net.fetch(u, o); }, userDir: USER_DIR, log: log, home: { lat: 40.19, lon: -92.58 } });
   phone = makePhone({
     electron: electron, watcher: watcher, log: log, baseWeb: baseWeb, uiFile: ui, model: model, save: function () { store.save(); },

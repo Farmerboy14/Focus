@@ -85,6 +85,12 @@
     $('cloudLine').textContent = 'CLOUDS FROM ' + upper(S.clock(i.at)) + ' · CONTAINS MODIFIED EUMETSAT DATA';
   }
   api.invoke('desk:cloudinfo').then(cloudLine).catch(function () { });
+  // this month's sharp 8K maps have arrived
+  api.on('desk:maps', function () {
+    if (!globe) return;
+    const img = function (n) { return api.invoke('desk:image', n); };
+    globe.setMaps({ day: img('earth_day.jpg'), night: img('earth_night.jpg'), water: img('earth_water.png') }).catch(function () { });
+  });
   api.on('desk:clouds', function (i) {
     cloudLine(i);
     if (globe) globe.setClouds(api.invoke('desk:image', 'earth_clouds.jpg')).catch(function () { });
@@ -108,6 +114,14 @@
     drag = { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY };
     document.body.classList.add('flying');
   });
+  // The wheel zooms in toward the pointer (and out again); like a drag, it drifts home after a while.
+  $('space').addEventListener('wheel', function (e) {
+    if (!globe) return;
+    e.preventDefault();
+    const dy = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaY;
+    globe.zoomBy(Math.exp(-Math.max(-400, Math.min(400, dy)) * 0.0016), e.clientX, e.clientY);
+    globe.release(20000);
+  }, { passive: false });
   window.addEventListener('mousemove', function (e) {
     const nx = e.clientX / window.innerWidth * 2 - 1, ny = e.clientY / window.innerHeight * 2 - 1;
     if (globe) globe.point(nx, ny); else stars.point(nx, ny);
