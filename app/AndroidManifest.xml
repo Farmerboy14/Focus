@@ -28,6 +28,7 @@
     <activity android:name=".PresetsActivity" android:exported="false" android:screenOrientation="portrait"/>
     <activity android:name=".PresetEditActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize"/>
     <activity android:name=".SetupActivity" android:exported="false" android:screenOrientation="portrait"/>
+    <activity android:name=".EarthActivity" android:exported="false" android:screenOrientation="portrait"/>
     <activity android:name=".BlockedActivity" android:exported="false" android:screenOrientation="portrait" android:excludeFromRecents="true"
         android:taskAffinity="com.caleb.focus.blocked" android:launchMode="singleTask" android:windowSoftInputMode="adjustResize"/>
     <activity android:name=".LockActivity" android:exported="false" android:showWhenLocked="true" android:excludeFromRecents="true"

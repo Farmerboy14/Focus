@@ -53,6 +53,18 @@ public class HomeActivity extends Activity {
         Ui.edgeToEdge(this, col, Ui.dp(this, 20), Ui.dp(this, 10), 0);
 
         LinearLayout head = Ui.row(this);
+        // a little globe: the Earth right now
+        android.widget.ImageView globe = new android.widget.ImageView(this);
+        globe.setImageDrawable(new GlobeGlyph(this));
+        globe.setContentDescription("The Earth right now");
+        globe.setClickable(true);
+        Ui.press(globe);
+        globe.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { Ui.open(HomeActivity.this, EarthActivity.class); }
+        });
+        LinearLayout.LayoutParams glp = new LinearLayout.LayoutParams(Ui.dp(this, 32), Ui.dp(this, 32));
+        glp.rightMargin = Ui.dp(this, 10);
+        head.addView(globe, glp);
         clock = Ui.mono(this, "", 12, 0xFFB4B7BE);
         head.addView(clock);
         head.addView(Ui.space(this));
@@ -460,6 +472,35 @@ public class HomeActivity extends Activity {
                         render(false);
                     }
                 }).show();
+    }
+
+    /** A line-drawn globe on a stone disc, in the night icons' style. */
+    static final class GlobeGlyph extends android.graphics.drawable.Drawable {
+        private final android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        private final android.graphics.RectF r = new android.graphics.RectF();
+        GlobeGlyph(android.content.Context c) { }
+        @Override public void draw(android.graphics.Canvas c) {
+            android.graphics.Rect b = getBounds();
+            float s = Math.min(b.width(), b.height()), cx = b.exactCenterX(), cy = b.exactCenterY();
+            p.setStyle(android.graphics.Paint.Style.FILL);
+            p.setColor(0xD90B1019);
+            c.drawCircle(cx, cy, s / 2f, p);
+            p.setStyle(android.graphics.Paint.Style.STROKE);
+            p.setStrokeWidth(Math.max(1f, s / 64f));
+            p.setColor(0x2EAACFF6);
+            c.drawCircle(cx, cy, s / 2f - p.getStrokeWidth() / 2f, p);
+            float g = s * 0.30f;
+            p.setColor(Ui.ICE_SOFT);
+            p.setStrokeWidth(s * 0.045f);
+            p.setStrokeCap(android.graphics.Paint.Cap.ROUND);
+            c.drawCircle(cx, cy, g, p);
+            r.set(cx - g * 0.45f, cy - g, cx + g * 0.45f, cy + g);
+            c.drawOval(r, p);
+            c.drawLine(cx - g, cy, cx + g, cy, p);
+        }
+        @Override public void setAlpha(int a) { }
+        @Override public void setColorFilter(android.graphics.ColorFilter f) { }
+        @Override public int getOpacity() { return android.graphics.PixelFormat.TRANSLUCENT; }
     }
 
     private TextView appChip(String label, final String pkg, boolean gold) {

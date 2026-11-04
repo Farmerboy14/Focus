@@ -10,6 +10,8 @@ Install: download `release/Focus.apk` on the phone. After that, Focus updates it
 
 - Phone icons ("Night line icons"): [Lawnicons](https://github.com/LawnchairLauncher/lawnicons), Apache License 2.0, converted by `tools/make-icons.py` (see `app/assets/icons/NOTICE.txt`).
 
+- Phone Earth: NASA Blue Marble and Black Marble (public domain); live clouds from [Live Cloud Maps](https://github.com/matteason/live-cloud-maps) (CC0), contains modified EUMETSAT data.
+
 ### Focus for Windows desktop
 
 - Earth imagery: NASA Blue Marble and Black Marble, public domain.
