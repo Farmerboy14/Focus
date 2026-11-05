@@ -24,7 +24,8 @@
   try {
     // WebGL won't take images straight from disk (they count as another origin), so Focus hands them over as data.
     const img = function (n) { return api.invoke('desk:image', n); };
-    globe = E.Scene($('space'), { home: HOME, sky: window.FocusSky, stars: window.FocusStarData, images: {
+    globe = E.Scene($('space'), { home: HOME, sky: window.FocusSky, stars: window.FocusStarData,
+      worldImage: function (id) { return api.invoke('desk:image', 'planets/' + id + (id === 'saturn_ring' ? '.png' : '.jpg')); }, images: {
       day: img('earth_day.jpg'), night: img('earth_night.jpg'), water: img('earth_water.png'), clouds: img('earth_clouds.jpg'), milky: img('milkyway.jpg') } });
     document.body.classList.add('gl');
     layoutScene();
@@ -63,7 +64,11 @@
     globe.bodies().sort(function (a, b) { return ORDER.indexOf(a.id) - ORDER.indexOf(b.id); }).forEach(function (b) {
       seen[b.id] = true;
       let el = labels[b.id];
-      if (!el) { el = labels[b.id] = U.el('span', { class: 'blabel ' + b.id, text: upper(b.name) }); $('labels').appendChild(el); }
+      if (!el) {
+        el = labels[b.id] = U.el('span', { class: 'blabel ' + b.id, text: upper(b.name), title: 'Visit ' + b.name });
+        el.addEventListener('click', function () { openWorld(b.id); });
+        $('labels').appendChild(el);
+      }
       const w = el.offsetWidth || 80;
       // names go on the side away from the Earth, so they never sit on its glow
       const left = b.x < ec.x;
@@ -119,6 +124,7 @@
     if (!globe) return;
     e.preventDefault();
     const dy = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaY;
+    if (globe.visiting()) { globe.visitZoom(Math.exp(-Math.max(-400, Math.min(400, dy)) * 0.0016)); return; }
     globe.zoomBy(Math.exp(-Math.max(-400, Math.min(400, dy)) * 0.0016), e.clientX, e.clientY);
     globe.release(20000);
   }, { passive: false });
@@ -126,6 +132,7 @@
     const nx = e.clientX / window.innerWidth * 2 - 1, ny = e.clientY / window.innerHeight * 2 - 1;
     if (globe) globe.point(nx, ny); else stars.point(nx, ny);
     if (!drag) { hover(e.clientX, e.clientY); return; }
+    if (globe.visiting()) { globe.visitDrag(e.clientX - drag.x, e.clientY - drag.y); drag.x = e.clientX; drag.y = e.clientY; return; }
     globe.drag(e.clientX - drag.x, e.clientY - drag.y);
     drag.x = e.clientX; drag.y = e.clientY;
     placeHome(); placeLabels();
@@ -135,7 +142,8 @@
     const moved = Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0);
     drag = null;
     document.body.classList.remove('flying');
-    if (moved < 5) { click(e.clientX, e.clientY); return; }   // a click, not a drag: maybe a plane
+    if (moved < 5) { click(e.clientX, e.clientY); return; }   // a click, not a drag: a planet or a plane
+    if (globe.visiting()) return;
     globe.release(20000);
   });
   window.addEventListener('mouseleave', function () { if (globe) globe.point(0, 0); else stars.point(0, 0); });
@@ -181,11 +189,14 @@
   }
 
   function hover(x, y) {
-    if (!globe || !flights.all || !flights.all.length) return;
+    if (!globe || globe.visiting()) return;
     const t = performance.now();
     if (t - flights.hoverAt < 60) return;
     flights.hoverAt = t;
-    const p = globe.planeNear(x, y, 12);
+    const w = globe.bodyAt(x, y);
+    document.body.classList.toggle('onworld', !!w);
+    if (!flights.all || !flights.all.length) return;
+    const p = w ? null : globe.planeNear(x, y, 12);
     globe.setHovered(p ? p.hex : null);
     document.body.classList.toggle('onplane', !!p);
     const tip = $('planeTip');
@@ -196,7 +207,10 @@
   }
 
   function click(x, y) {
-    if (!globe || !flights.all) return;
+    if (!globe || globe.visiting()) return;
+    const w = globe.bodyAt(x, y);
+    if (w) { openWorld(w); return; }
+    if (!flights.all) return;
     const p = globe.planeNear(x, y, 14);
     if (p) select(p);
   }
@@ -308,6 +322,61 @@
   }
 
   $('fClose').addEventListener('click', closeFlight);
+
+  // ---------- visiting the Sun, the Moon and the planets ----------
+  const WD = window.FocusWorlds;
+  let worldTimer = 0, worldVerse = null;
+
+  function openWorld(id) {
+    if (!globe || still || globe.visiting() || !WD.W[id]) return;
+    if (flights.sel) closeFlight();
+    if (!globe.visit(id)) return;
+    document.body.classList.add('visiting', 'world-open');
+    document.body.classList.remove('onworld', 'onplane');
+    renderWorld(id);
+    clearInterval(worldTimer);
+    worldTimer = setInterval(function () { renderWorld(id); }, 30000);
+  }
+
+  function closeWorld() {
+    clearInterval(worldTimer);
+    document.body.classList.remove('world-open');
+    if (globe) globe.leave();
+  }
+
+  function renderWorld(id) {
+    const w = WD.W[id];
+    $('wName').textContent = w.name;
+    $('wWhat').textContent = w.what;
+    const lv = WD.live(window.FocusSky.at(Date.now()), id, HOME.lat, HOME.lon);
+    const now = $('wNow');
+    now.textContent = '';
+    if (lv) {
+      const away = id === 'sun' || id === 'moon' ? WD.bigMiles(lv.miles) : WD.bigMiles(lv.miles) + ' (' + lv.au.toFixed(2) + ' AU)';
+      now.appendChild(document.createTextNode('Right now it’s '));
+      now.appendChild(U.el('b', { text: away }));
+      now.appendChild(document.createTextNode(' away. Its light takes ' + WD.lightText(lv.lightSec) + ' to reach you.'));
+      if (id !== 'sun') now.appendChild(document.createTextNode(' ' + Math.round(lv.lit * 100) + '% of the side facing us is lit.'));
+      now.appendChild(U.el('br'));
+      now.appendChild(document.createTextNode(lv.alt > 0
+        ? 'From Kirksville: ' + Math.round(lv.alt) + '° up in the ' + lv.dir + '.'
+        : 'From Kirksville: below the horizon right now (' + lv.dir + ').'));
+    }
+    const g = $('wFacts');
+    g.textContent = '';
+    w.facts.forEach(function (f) { g.appendChild(U.el('div', {}, [U.el('span', { text: upper(f[0]) }), U.el('b', { text: f[1] })])); });
+    $('wNote').textContent = w.note;
+    worldVerse = w.verse;
+    $('wVerseText').textContent = '“' + w.verse.text + '”';
+    $('wVerseRef').textContent = upper(w.verse.ref + ' · KJV');
+  }
+
+  $('wClose').addEventListener('click', closeWorld);
+  window.focusVisit = openWorld;   // for the tests
+  $('wVerse').addEventListener('click', function () {
+    if (worldVerse) api.invoke('desk:action', { what: 'bible', book: worldVerse.book, chapter: worldVerse.chapter });
+  });
+  if (globe) globe.onVisit = function (id) { if (!id) document.body.classList.remove('visiting'); };
   if (!still) setTimeout(pollFlights, 1500);
 
   // Covered by a full-screen window, asleep, or locked: stop animating.

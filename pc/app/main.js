@@ -611,7 +611,9 @@ function setupIpc() {
     if (a.done) { const p = w.getPosition(); model.settings.widget = { x: p[0], y: p[1] }; store.save(); }
     return true;
   });
-  const DESK_IMAGES = { 'earth_day.jpg': 'image/jpeg', 'earth_night.jpg': 'image/jpeg', 'earth_water.png': 'image/png', 'earth_clouds.jpg': 'image/jpeg', 'milkyway.jpg': 'image/jpeg' };
+  const DESK_IMAGES = { 'earth_day.jpg': 'image/jpeg', 'earth_night.jpg': 'image/jpeg', 'earth_water.png': 'image/png', 'earth_clouds.jpg': 'image/jpeg', 'milkyway.jpg': 'image/jpeg',
+    'planets/saturn_ring.png': 'image/png' };
+  ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'].forEach(function (w) { DESK_IMAGES['planets/' + w + '.jpg'] = 'image/jpeg'; });
   handle('desk:image', function (name) {
     const type = DESK_IMAGES[name];
     if (!type) return '';

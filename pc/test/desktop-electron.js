@@ -142,6 +142,18 @@ app.whenReady().then(async function () {
     await sleep(300);
     ok(!(await w.webContents.executeJavaScript('document.body.classList.contains("flight-open")')), 'and the × closes them');
     d.input('l');
+    // Visit Jupiter: the facts open, the camera flies there and back
+    await w.webContents.executeJavaScript('window.focusVisit("jupiter")');
+    await sleep(400);
+    const wtext = await w.webContents.executeJavaScript('document.body.classList.contains("visiting") ? document.getElementById("world").innerText : ""');
+    ok(/Jupiter/.test(wtext) && /million miles/.test(wtext) && /86,881 mi/.test(wtext) && /Psalm 19:1/i.test(wtext), 'visiting Jupiter opens its facts: ' + wtext.replace(/\s+/g, ' ').slice(0, 110));
+    await sleep(4500);
+    const wb = await w.webContents.executeJavaScript('(function(){var r=document.getElementById("wClose").getBoundingClientRect();return [Math.round(r.x+r.width/2),Math.round(r.y+r.height/2)]})()');
+    d.input('m ' + wb[0] + ' ' + wb[1]); await sleep(100); d.input('d ' + wb[0] + ' ' + wb[1]); await sleep(60); d.input('u ' + wb[0] + ' ' + wb[1]);
+    let back = true;
+    for (let i = 0; i < 40 && back; i++) { await sleep(250); back = await w.webContents.executeJavaScript('document.body.classList.contains("visiting")'); }
+    ok(!back, 'the × flies back to the Earth');
+    d.input('l');
     // A window filling the screen pauses the animation; the desktop coming back resumes it
     d.foreground({ exe: 'chrome', title: 'YouTube', min: false, rect: [-8, -8, 1288, 1032] });
     await sleep(150);

@@ -28,7 +28,7 @@
   body.still .labels { display: none; }
 
   /* Live flights */
-  body.onplane #space { cursor: pointer; }
+  body.onplane #space, body.onworld #space { cursor: pointer; }
   .ptip { position: absolute; left: 0; top: 0; pointer-events: none; padding: .3rem .6rem; border-radius: .5rem; font-family: var(--mono); font-size: .66rem;
     letter-spacing: .12em; color: #F6EAD0; background: rgba(6, 9, 16, .82); border: 1px solid rgba(242, 211, 138, .25); opacity: 0; transition: opacity .15s ease; white-space: nowrap; }
   .pmark { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; opacity: 0; transition: opacity .3s ease; }
@@ -44,6 +44,8 @@
   .flight .top { display: flex; align-items: center; justify-content: space-between; }
   .flight .top span { font-family: var(--mono); font-size: .7rem; letter-spacing: .2em; color: var(--gold-deep); }
   .flight .x { width: 2rem; height: 2rem; border-radius: 50%; font-size: 1.2rem; line-height: 1; color: var(--muted); border: 1px solid rgba(170, 207, 246, .14); background: none; }
+  .world .x { width: 2rem; height: 2rem; border-radius: 50%; font-size: 1.2rem; line-height: 1; color: var(--muted); border: 1px solid rgba(170, 207, 246, .14); background: none; }
+  .world .x:hover { color: var(--ink); border-color: rgba(170, 207, 246, .4); }
   .flight .x:hover { color: var(--ink); border-color: rgba(170, 207, 246, .4); }
   .flight h3 { margin: .5rem 0 0; font-weight: 500; font-size: 1.9rem; letter-spacing: -.01em; color: #F6EAD0; }
   .flight .al { margin-top: .15rem; font-size: .98rem; color: var(--soft); min-height: 1.2rem; }
@@ -64,6 +66,35 @@
   .flight .own:empty { display: none; }
   .flight .src { margin-top: .8rem; font-family: var(--mono); font-size: .56rem; letter-spacing: .1em; color: var(--quiet); opacity: .7; }
   body.still .flight, body.still .pmark, body.still .ptip { display: none !important; }
+
+  /* Visiting a world */
+  .blabel { pointer-events: auto; cursor: pointer; }
+  .blabel:hover { color: #F6EAD0; }
+  body.visiting .labels, body.visiting .earth .home, body.visiting .earth .cap, body.visiting .pmark, body.visiting .ptip { opacity: 0 !important; pointer-events: none; }
+  body.visiting .earth .cap, body.visiting .labels { transition: opacity .6s ease; }
+  body.visiting #space { cursor: grab; }
+  .world { position: absolute; left: 3.5rem; top: 3.5rem; width: 24rem; padding: 1.4rem 1.5rem 1.2rem; border-radius: 1.4rem; display: none;
+    background-color: rgba(6, 9, 16, .8); border: 1px solid rgba(242, 211, 138, .2); backdrop-filter: blur(6px); }
+  body.side-left .world { left: auto; right: 3.5rem; }
+  body.world-open .world { display: block; animation: rise .5s var(--spring) 1.2s both; }
+  .world .top { display: flex; align-items: center; justify-content: space-between; }
+  .world .top span { font-family: var(--mono); font-size: .7rem; letter-spacing: .2em; color: var(--gold-deep); }
+  .world h3 { margin: .45rem 0 0; font-family: var(--serif); font-weight: 400; font-size: 2.5rem; line-height: 1.05; color: #F6EAD0; }
+  .world .what { margin-top: .3rem; font-size: .98rem; color: var(--soft); }
+  .world .wnow { margin-top: 1rem; padding: .85rem 1rem; border-radius: .9rem; background: rgba(170, 207, 246, .05); border: 1px solid rgba(170, 207, 246, .1);
+    font-size: .95rem; line-height: 1.5; color: #DADDE3; }
+  .world .wnow b { font-weight: 500; color: var(--ink); }
+  .world .facts { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem 1rem; margin-top: 1.1rem; }
+  .world .facts span { display: block; font-family: var(--mono); font-size: .6rem; letter-spacing: .14em; color: var(--quiet); }
+  .world .facts b { display: block; margin-top: .2rem; font-weight: 400; font-size: 1rem; color: var(--ink); }
+  .world .note { margin-top: 1rem; font-size: .95rem; line-height: 1.5; color: var(--soft); }
+  .world .vs { margin-top: 1rem; padding-top: .9rem; border-top: 1px solid rgba(170, 207, 246, .1); }
+  .world .vs q { quotes: none; display: block; font-family: var(--serif); font-style: italic; font-size: 1.05rem; line-height: 1.4; color: #EFEDE6; }
+  .world .vs span { display: block; margin-top: .35rem; font-family: var(--mono); font-size: .62rem; letter-spacing: .16em; color: var(--muted); }
+  .world .vs.hit:hover span { color: var(--gold-deep); }
+  .world .hint { margin-top: .8rem; font-family: var(--mono); font-size: .58rem; letter-spacing: .12em; color: var(--quiet); opacity: .7; }
+  .world .src { margin-top: .3rem; font-family: var(--mono); font-size: .54rem; letter-spacing: .1em; color: var(--quiet); opacity: .55; }
+  body.still .world { display: none !important; }
   .sky .dawn { transition: opacity 2.4s ease; }
   .shade { position: absolute; inset: 0; pointer-events: none; transition: opacity 1s ease;
     background: linear-gradient(to left, rgba(4, 6, 11, .62) 0%, rgba(4, 6, 11, .38) 34%, rgba(4, 6, 11, 0) 62%); }
@@ -164,6 +195,17 @@
   <div class="home" id="home"></div>
   <div class="cap"><b>EARTH RIGHT NOW</b><span id="earthLine"></span><i id="earthHint">DRAG TO FLY AROUND IT · SCROLL TO ZOOM</i><em id="flightLine"></em><em id="cloudLine"></em></div>
 </section>
+<section class="world" id="world" aria-live="polite">
+  <div class="top"><span id="wKind">VISITING</span><button class="x hit" id="wClose" title="Back to Earth">×</button></div>
+  <h3 id="wName"></h3>
+  <div class="what" id="wWhat"></div>
+  <div class="wnow" id="wNow"></div>
+  <div class="facts" id="wFacts"></div>
+  <div class="note" id="wNote"></div>
+  <div class="vs hit" id="wVerse" title="Read the chapter"><q id="wVerseText"></q><span id="wVerseRef"></span></div>
+  <div class="hint">DRAG TO ORBIT · SCROLL TO ZOOM · × FLIES HOME</div>
+  <div class="src">MAPS: SOLAR SYSTEM SCOPE (CC BY 4.0), FROM NASA DATA</div>
+</section>
 <section class="flight" id="flight" aria-live="polite">
   <div class="top"><span>FLIGHT</span><button class="x hit" id="fClose" title="Close">×</button></div>
   <h3 id="fCall"></h3>
@@ -204,6 +246,7 @@
 <script src="stars.js"></script>
 <script src="stars-data.js"></script>
 <script src="sky.js"></script>
+<script src="worlds.js"></script>
 <script src="earth.js"></script>
 <script src="desktop.js"></script>
 </body>

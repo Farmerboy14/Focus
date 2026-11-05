@@ -1,6 +1,6 @@
 {
-  "version": 16,
-  "name": "1.10",
+  "version": 17,
+  "name": "1.11",
   "minBootstrap": 1,
-  "notes": "Scroll to zoom in on the Earth. Sharper 8K maps of this month's Earth, and full-detail live clouds that float above the ground."
+  "notes": "Click the Sun, the Moon or a planet (or its name) to fly there: the camera orbits it and a card shows how far away it is right now and facts about it."
 }

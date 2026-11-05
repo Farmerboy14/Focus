@@ -231,7 +231,7 @@
   const EARTH_FS = [
     'precision highp float;', RAY,
     'uniform float uD; uniform mat3 uRot; uniform vec3 uSun; uniform vec3 uHome; uniform float uHomeR; uniform float uHalo; uniform vec3 uSunPx; uniform float uRpx;',
-    'uniform float uCloudH;',
+    'uniform float uCloudH; uniform float uFade;',
     'uniform sampler2D uDay; uniform sampler2D uNight; uniform sampler2D uWater; uniform sampler2D uClouds;',
     'const float PI = 3.14159265;',
     'vec2 ll(vec3 n){',
@@ -268,7 +268,7 @@
     '  float rc = 1.0 + uCloudH;',
     '  if (h >= 1.0) {',
     '    float k = clamp((1.0 + uHalo - h) / uHalo, 0.0, 1.0);',
-    '    if (k <= 0.0) { gl_FragColor = vec4(0.0); return; }',
+    '    if (k <= 0.0) { gl_FragColor = vec4(0.0) * uFade; return; }',
     '    vec3 nE = uRot * normalize(O - b * d);',
     '    vec3 hc = haloColor(nE, dE);',
     '    float a = k * k;',
@@ -282,7 +282,7 @@
     '      vec3 cc = cloudLight(nc, cl, l) * smoothstep(-0.12, 0.05, l);',
     '      c = mix(c, cc, cl * 0.85); al = max(al, cl * 0.85);',
     '    }',
-    '    gl_FragColor = vec4(c, al);',
+    '    gl_FragColor = vec4(c, al) * uFade;',
     '    return;',
     '  }',
     '  vec3 p = O + (-b - sqrt(b * b - (uD * uD - 1.0))) * d;',
@@ -315,7 +315,7 @@
     '  float ang = acos(clamp(dot(n, uHome), -1.0, 1.0));',
     '  col = mix(col, vec3(0.95, 0.83, 0.54), smoothstep(uHomeR * 1.17, uHomeR * 0.83, ang));',
     '  col = mix(col, haloColor(n, dE), smoothstep(0.985, 1.0, h) * 0.85);',
-    '  gl_FragColor = vec4(col, 1.0);',
+    '  gl_FragColor = vec4(col, 1.0) * uFade;',
     '}'
   ].join('\n');
 
@@ -378,6 +378,94 @@
     '}'
   ].join('\n');
 
+  // A world up close: a textured, sunlit sphere the camera orbits; Saturn's rings with the shadows they and the
+  // planet cast on each other; a thin atmosphere on the edge for the worlds that have one; the Sun glows.
+  const WORLD_FS = [
+    'precision highp float;', RAY,
+    'uniform float uD; uniform mat3 uV2C; uniform vec3 uPole; uniform vec3 uMer; uniform vec3 uSunDir; uniform float uKind; uniform float uFade;',
+    'uniform vec3 uAtm; uniform float uRingIn; uniform float uRingOut; uniform sampler2D uTex; uniform sampler2D uRing;',
+    'const float PI = 3.14159265;',
+    'vec2 ll(vec3 n){',
+    '  float lat = asin(clamp(dot(n, uPole), -1.0, 1.0));',
+    '  vec3 e = n - uPole * dot(n, uPole);',
+    '  float u = atan(dot(e, cross(uPole, uMer)), dot(e, uMer)) / (2.0 * PI);',
+    '#ifdef SEAMFIX',
+    '  float u1 = fract(u + 0.5), u2 = fract(u) - 0.5;',
+    '  u = fwidth(u1) <= fwidth(u2) + 1e-6 ? u1 : u2 + 0.5;',
+    '#else',
+    '  u = u + 0.5;',
+    '#endif',
+    '  return vec2(u, 0.5 - lat / PI);',
+    '}',
+    'vec4 ring(float r){',
+    '  float u = (r - uRingIn) / (uRingOut - uRingIn);',
+    '  if (u < 0.0 || u > 1.0) return vec4(0.0);',
+    '  return texture2D(uRing, vec2(u, 0.5));',
+    '}',
+    'void main(){',
+    '  vec3 d = rayDir();',
+    '  vec3 O = vec3(0.0, 0.0, uD);',
+    '  float b = dot(O, d);',
+    '  float disc = b * b - (uD * uD - 1.0);',
+    '  float h = sqrt(max(uD * uD - b * b, 0.0));',
+    '  vec4 col = vec4(0.0);',
+    '  float tP = 1e9;',
+    '  if (disc > 0.0) {',
+    '    tP = -b - sqrt(disc);',
+    '    vec3 pv = O + tP * d;',
+    '    vec3 n = uV2C * pv;',
+    '    vec3 tex = texture2D(uTex, ll(n)).rgb;',
+    '    float mu = clamp(dot(pv, -d), 0.0, 1.0);',
+    '    if (uKind > 2.5) {',                                     // the Sun: it makes its own light
+    '      col = vec4(tex * vec3(1.35, 1.15, 0.9) * (0.55 + 0.6 * pow(mu, 0.45)) + vec3(0.25, 0.12, 0.0) * (1.0 - mu), 1.0);',
+    '    } else {',
+    '      float l = dot(n, uSunDir);',
+    // rocky worlds stay bright right up to the terminator (like the real Moon); cloudy ones fade more gently
+    '      vec3 c = uKind < 0.5 ? tex * (0.015 + smoothstep(-0.02, 0.14, l) * (0.62 + 0.5 * clamp(l, 0.0, 1.0)))',
+    '                           : tex * (0.015 + 1.15 * clamp(l, 0.0, 1.0)) * smoothstep(-0.08, 0.12, l + 0.06);',
+    '      if (uRingOut > 0.0) {',                                // the rings' shadow on the planet
+    '        float sp = dot(uSunDir, uPole);',
+    '        if (abs(sp) > 1e-3) {',
+    '          float st = -dot(n, uPole) / sp;',
+    '          if (st > 0.0) c *= 1.0 - ring(length(n + uSunDir * st)).a * 0.75;',
+    '        }',
+    '      }',
+    '      c += uAtm * pow(1.0 - mu, 2.5) * (0.15 + 0.85 * smoothstep(-0.2, 0.4, l));',
+    '      col = vec4(c, 1.0);',
+    '    }',
+    '  } else if (uKind > 2.5) {',
+    '    float g = exp(-(h - 1.0) * 5.0) * 0.9 + exp(-(h - 1.0) * 1.2) * 0.25;',     // the Sun's glow
+    '    col = vec4(vec3(1.0, 0.82, 0.55) * g, clamp(g, 0.0, 1.0));',
+    '  } else if (uAtm.r + uAtm.g + uAtm.b > 0.0 && h < 1.04) {',
+    '    float k = (1.04 - h) / 0.04;',
+    '    vec3 nE = uV2C * normalize(O - b * d);',
+    '    float a = k * k * 0.6 * (0.2 + 0.8 * smoothstep(-0.3, 0.4, dot(nE, uSunDir)));',
+    '    col = vec4(uAtm * a, a);',
+    '  }',
+    '  if (uRingOut > 0.0) {',
+    '    vec3 Pv = vec3(dot(uV2C[0], uPole), dot(uV2C[1], uPole), dot(uV2C[2], uPole));',
+    '    float den = dot(d, Pv);',
+    '    if (abs(den) > 1e-5) {',
+    '      float t = -dot(O, Pv) / den;',
+    '      if (t > 0.0) {',
+    '        vec3 q = O + t * d;',
+    '        vec4 rg = ring(length(q));',
+    '        if (rg.a > 0.003) {',
+    '          vec3 qc = uV2C * q;',
+    '          float bb = dot(qc, uSunDir), cc = dot(qc, qc) - 1.0;',
+    '          float shade = (bb < 0.0 && bb * bb - cc > 0.0) ? 0.06 : 1.0;',   // in the planet's shadow
+    '          vec3 rc = rg.rgb * (0.35 + 0.75 * abs(dot(uPole, uSunDir))) * shade;',
+    '          float ra = rg.a * 0.92;',
+    '          if (t < tP) col = vec4(rc * ra + col.rgb * (1.0 - ra), ra + col.a * (1.0 - ra));',
+    '          else if (col.a < 0.99) col = vec4(col.rgb + rc * ra * (1.0 - col.a), col.a + ra * (1.0 - col.a));',
+    '        }',
+    '      }',
+    '    }',
+    '  }',
+    '  gl_FragColor = col * uFade;',
+    '}'
+  ].join('\n');
+
   function compile(gl, type, src) {
     const s = gl.createShader(type);
     // fragment shaders get screen-space derivatives when the GPU has them, for seamless mipmapped maps
@@ -420,8 +508,24 @@
     uranus: { kind: 3, size: 0.012, col: [0.62, 0.86, 0.90], col2: [0.80, 0.94, 0.96] },
     neptune: { kind: 3, size: 0.011, col: [0.34, 0.52, 0.96], col2: [0.55, 0.70, 1.0] }
   };
+  // Up close: how big on screen (in Earth-sizes), the air at the edge, Saturn's rings (planet radii), the Sun shines
+  const WORLDS = {
+    sun: { kind: 3, size: 0.70 },
+    moon: { kind: 0, size: 0.85, atm: [0, 0, 0] },
+    mercury: { kind: 0, size: 0.85, atm: [0, 0, 0] },
+    venus: { kind: 1, size: 0.85, atm: [0.55, 0.48, 0.32] },
+    mars: { kind: 0, size: 0.85, atm: [0.45, 0.28, 0.18] },
+    jupiter: { kind: 1, size: 0.85, atm: [0.42, 0.38, 0.32] },
+    saturn: { kind: 1, size: 0.55, atm: [0.45, 0.40, 0.30], rings: [1.24, 2.27] },
+    uranus: { kind: 1, size: 0.85, atm: [0.30, 0.48, 0.52] },
+    neptune: { kind: 1, size: 0.85, atm: [0.20, 0.30, 0.62] }
+  };
+  // How each one turns: the IAU's prime meridian W = a + b·d degrees, d in days from J2000
+  const SPIN = { sun: [84.176, 14.1844], mercury: [329.5469, 6.1385025], venus: [160.20, -1.4813688], mars: [176.630, 350.89198226],
+    jupiter: [284.95, 870.536], saturn: [38.90, 810.7939024], uranus: [203.81, -501.1600928], neptune: [249.978, 541.1397757] };
+
   // North poles (RA, Dec in degrees, J2000)
-  const POLES = { moon: [270.0, 66.5], mercury: [281.0, 61.4], venus: [272.8, 67.2], mars: [317.7, 52.9], jupiter: [268.1, 64.5], saturn: [40.6, 83.5], uranus: [257.3, -15.2], neptune: [299.4, 43.5] };
+  const POLES = { sun: [286.13, 63.87], moon: [270.0, 66.5], mercury: [281.0, 61.4], venus: [272.8, 67.2], mars: [317.7, 52.9], jupiter: [268.1, 64.5], saturn: [40.6, 83.5], uranus: [257.3, -15.2], neptune: [299.4, 43.5] };
 
   /**
    * Scene(canvas, { home, images: {day, night, water, clouds, milky}, stars: [ra,dec,mag,ci,...], sky: FocusSky })
@@ -437,8 +541,9 @@
     const sky = program(gl, QUAD_VS, SKY_FS, ['uC', 'uFs', 'uV2C', 'uSunC', 'uMilky', 'uGain']);
     const star = program(gl, STAR_VS, STAR_FS, ['uC2V', 'uC', 'uFs', 'uRes', 'uTime', 'uScale']);
     const body = program(gl, BODY_VS, BODY_FS, ['uPos', 'uExt', 'uRes', 'uRad', 'uLight', 'uPole', 'uKind', 'uCol', 'uCol2']);
-    const earth = program(gl, QUAD_VS, EARTH_FS, ['uC', 'uF', 'uD', 'uRot', 'uSun', 'uHome', 'uHomeR', 'uCloudH', 'uHalo', 'uSunPx', 'uRpx', 'uDay', 'uNight', 'uWater', 'uClouds']);
+    const earth = program(gl, QUAD_VS, EARTH_FS, ['uC', 'uF', 'uD', 'uRot', 'uSun', 'uHome', 'uHomeR', 'uCloudH', 'uFade', 'uHalo', 'uSunPx', 'uRpx', 'uDay', 'uNight', 'uWater', 'uClouds']);
     const plane = program(gl, PLANE_VS, PLANE_FS, ['uE2V', 'uC', 'uF', 'uD', 'uNow', 'uPx', 'uRes', 'uCol', 'uSel']);
+    const world = program(gl, QUAD_VS, WORLD_FS, ['uC', 'uF', 'uD', 'uV2C', 'uPole', 'uMer', 'uSunDir', 'uKind', 'uFade', 'uAtm', 'uRingIn', 'uRingOut', 'uTex', 'uRing']);
     const planeBuf = gl.createBuffer();
     let planes = [], planeCount = 0, planeBase = 0, selected = null, hovered = null, route = null;
 
@@ -566,25 +671,28 @@
       const R = rotation();                          // view → earth
       if (!skyAt || Math.abs(skyAt.t - now) > 20000) skyAt = { t: now, sky: SKY.at(now) };
       const s = skyAt.sky;
+      s.days = now / 86400000 + 2440587.5 - 2451545.0;
       const c2e = tr(turn(s.gmst));                  // equatorial → earth-fixed (undoes the Earth's turn)
-      const c2v = mul(tr(R), c2e);
+      let c2v = mul(tr(R), c2e);
+      if (visit) c2v = visitCamera(c2v);                // visiting a world: the camera that orbits it
       const f = lay.r * Math.sqrt(DIST * DIST - 1);
       // the far corners of the screen stay within about 115° of straight behind the Earth, where the fisheye still looks right
       const W = canvas.clientWidth, H = canvas.clientHeight;
       const corner = Math.max(Math.hypot(lay.cx, lay.cy), Math.hypot(W - lay.cx, lay.cy), Math.hypot(lay.cx, H - lay.cy), Math.hypot(W - lay.cx, H - lay.cy));
       const fs = Math.max(lay.r * SKY_SCALE, corner / 2.0);
+      const ccx = lay.cx + (visit ? visitShift() : 0);   // while visiting, the world sits a little right of the panel
       const sunC = norm(s.bodies[0].pos);
       const out = [];
       s.bodies.forEach(function (b) {
         const v = app(c2v, norm(b.pos));
         const th = Math.acos(Math.max(-1, Math.min(1, -v[2]))), l = Math.hypot(v[0], v[1]) || 1e-9;
-        const x = lay.cx + fs * th * v[0] / l, y = lay.cy - fs * th * v[1] / l;
-        const behind = Math.hypot(x - lay.cx, y - lay.cy) < lay.r * zoom() * 1.02;   // hidden by the Earth
+        const x = ccx + fs * th * v[0] / l, y = lay.cy - fs * th * v[1] / l;
+        const behind = !visit && Math.hypot(x - lay.cx, y - lay.cy) < lay.r * zoom() * 1.02;   // hidden by the Earth
         const look = LOOKS[b.id];
         out.push({ id: b.id, name: b.name, x: x, y: y, v: v, behind: behind, r: look ? look.size * lay.r : 0, body: b,
           onScreen: th < 3.0 && x > -40 && y > -40 && x < canvas.clientWidth + 40 && y < canvas.clientHeight + 40 });
       });
-      return { R: R, c2e: c2e, c2v: c2v, f: f, fs: fs, sunC: sunC, sunE: app(c2e, sunC), bodies: out, sky: s };
+      return { R: R, c2e: c2e, c2v: c2v, f: f, fs: fs, ccx: ccx, sunC: sunC, sunE: app(c2e, sunC), bodies: out, sky: s };
     }
 
     function draw(now) {
@@ -594,14 +702,14 @@
       const fr = frame(lastNow);
       frameInfo = fr;
       const k = sz.dpr;
-      const cx = lay.cx * k, cy = sz.h - lay.cy * k, f = fr.f * k, fs = fr.fs * k;
+      const cx = lay.cx * k, cy = sz.h - lay.cy * k, f = fr.f * k, fs = fr.fs * k, scx = fr.ccx * k;
       gl.viewport(0, 0, sz.w, sz.h);
       gl.disable(gl.BLEND);
 
       // 1. the sky
       gl.useProgram(sky.p);
       let loc = quadAttr(sky);
-      gl.uniform2f(sky.u.uC, cx, cy); gl.uniform1f(sky.u.uFs, fs);
+      gl.uniform2f(sky.u.uC, scx, cy); gl.uniform1f(sky.u.uFs, fs);
       gl.uniformMatrix3fv(sky.u.uV2C, false, gl3(tr(fr.c2v)));
       gl.uniform3fv(sky.u.uSunC, fr.sunC);
       gl.uniform1i(sky.u.uMilky, UNITS.milky); gl.uniform1f(sky.u.uGain, 1.55);
@@ -618,7 +726,7 @@
       gl.vertexAttribPointer(aDir, 3, gl.FLOAT, false, 24, 0);
       gl.vertexAttribPointer(aInfo, 3, gl.FLOAT, false, 24, 12);
       gl.uniformMatrix3fv(star.u.uC2V, false, gl3(fr.c2v));
-      gl.uniform2f(star.u.uC, cx, cy); gl.uniform1f(star.u.uFs, fs); gl.uniform2f(star.u.uRes, sz.w, sz.h);
+      gl.uniform2f(star.u.uC, scx, cy); gl.uniform1f(star.u.uFs, fs); gl.uniform2f(star.u.uRes, sz.w, sz.h);
       gl.uniform1f(star.u.uTime, performance.now() / 1000); gl.uniform1f(star.u.uScale, k);
       gl.drawArrays(gl.POINTS, 0, count);
       gl.disableVertexAttribArray(aDir); gl.disableVertexAttribArray(aInfo);
@@ -632,6 +740,7 @@
       fr.bodies.slice().sort(function (x, y) { return y.body.dist - x.body.dist; }).forEach(function (b) {
         const look = LOOKS[b.id];
         if (!look || !b.onScreen || b.behind) return;
+        if (visit && visit.id === b.id && visit.u >= HANDOFF) return;
         const rad = Math.max(2.2, b.r) * k;
         gl.uniform2f(body.u.uPos, b.x * k, sz.h - b.y * k);
         gl.uniform1f(body.u.uRad, rad);
@@ -649,7 +758,12 @@
       });
       gl.disableVertexAttribArray(loc);
 
+      // 3b. a world up close (behind the Earth while we fly away from it)
+      if (visit && visit.u >= HANDOFF) drawWorld(fr, sz, k, scx, cy);
+
       // 4. the Earth and its air, over everything
+      const earthFade = visit ? visit.earthFade : 1;
+      if (earthFade > 0.002) {
       gl.useProgram(earth.p);
       loc = quadAttr(earth);
       gl.uniform2f(earth.u.uC, cx, cy); gl.uniform1f(earth.u.uF, f); gl.uniform1f(earth.u.uD, dist);
@@ -662,11 +776,13 @@
       gl.uniform3f(earth.u.uSunPx, sun.x * k, sz.h - sun.y * k, sun.onScreen ? 1 : 0);
       gl.uniform1f(earth.u.uRpx, lay.r * zoom() * k);
       gl.uniform1i(earth.u.uDay, 0); gl.uniform1i(earth.u.uNight, 1); gl.uniform1i(earth.u.uWater, 2); gl.uniform1i(earth.u.uClouds, 3);
+      gl.uniform1f(earth.u.uFade, earthFade);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       gl.disableVertexAttribArray(loc);
+      }
 
       // 5. the planes, on the Earth
-      if (planeCount) {
+      if (planeCount && !visit) {
         gl.useProgram(plane.p);
         gl.bindBuffer(gl.ARRAY_BUFFER, planeBuf);
         const aA = gl.getAttribLocation(plane.p, 'aA'), aB = gl.getAttribLocation(plane.p, 'aB');
@@ -802,6 +918,172 @@
     }
     function hold(on) { held = !!on; }
 
+    // ---------- visiting a world ----------
+    // Click the Moon, a planet or the Sun: the camera swings round until it's straight behind the Earth, then flies
+    // past the Earth (which falls away and fades) while the world grows into a globe the camera slowly orbits.
+    const HANDOFF = 0.35, GO_MS = 3600, BACK_MS = 3000;
+    let visit = null;
+
+    function rotAxis(kx, a) {
+      const c = Math.cos(a), s = Math.sin(a), t = 1 - c, x = kx[0], y = kx[1], z = kx[2];
+      return [[c + x * x * t, x * y * t - z * s, x * z * t + y * s], [y * x * t + z * s, c + y * y * t, y * z * t - x * s], [z * x * t - y * s, z * y * t + x * s, c + z * z * t]];
+    }
+    function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+    function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+    function ease(x) { x = Math.max(0, Math.min(1, x)); return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2; }
+    function smooth(a, b, x) { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
+
+    function visitTo(id) {
+      if (visit || !WORLDS[id] || !frameInfo) return false;
+      const b = frameInfo.bodies.filter(function (x) { return x.id === id; })[0];
+      if (!b) return false;
+      const dirE = app(frameInfo.c2e, norm(b.body.pos));
+      cancelAnimationFrame(spring); springOn = false; resumeDrift = false; held = true; anchor = null;
+      visit = { id: id, phase: 'go', start: performance.now(), u: 0, earthFade: 1, grow: 0, base: null, az: 0, el: 0, zoom: 1,
+        autoAt: 0, lastT: performance.now(), tex: null, ring: null,
+        from: { lat: view.lat, lon: view.lon, dist: dist },
+        look: { lat: -Math.asin(Math.max(-1, Math.min(1, dirE[1]))) / RAD, lon: Math.atan2(dirE[0], dirE[2]) / RAD + 180 },
+        rDot: Math.max(3, id === 'sun' ? 0.016 * frameInfo.fs : (LOOKS[id] ? LOOKS[id].size * lay.r : 4)) };
+      const v = visit;
+      if (opts.worldImage) {
+        loadImage(opts.worldImage(id)).then(function (img) { if (visit === v) { texture('world', 5, img); v.tex = true; } }).catch(function () { });
+        if (WORLDS[id].rings) loadImage(opts.worldImage('saturn_ring')).then(function (img) {
+          if (visit !== v) return;
+          if (!tex.ring) tex.ring = gl.createTexture();
+          gl.activeTexture(gl.TEXTURE6);
+          gl.bindTexture(gl.TEXTURE_2D, tex.ring);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          v.ring = true;
+        }).catch(function () { });
+      }
+      if (!running) start();
+      return true;
+    }
+
+    function visitLeave() {
+      if (!visit || visit.phase === 'back') return;
+      visit.back = { az: visit.az, el: visit.el, zoom: visit.zoom, grow: visit.grow, fade: visit.earthFade, dist: dist };
+      visit.phase = 'back'; visit.start = performance.now();
+    }
+
+    function stepVisit() {
+      if (!visit) return;
+      const t = performance.now(), dt = Math.min(0.1, (t - visit.lastT) / 1000);
+      visit.lastT = t;
+      const far = 40;
+      if (visit.phase === 'go') {
+        const u = Math.min(1, (t - visit.start) / GO_MS);
+        visit.u = u;
+        const a = ease(u / HANDOFF), fr = visit.from, lk = visit.look;
+        const dl = ((lk.lon - fr.lon) % 360 + 540) % 360 - 180;
+        view.lat = fr.lat + (lk.lat - fr.lat) * a;
+        view.lon = fr.lon + dl * a;
+        dist = fr.dist + (DIST - fr.dist) * a;
+        if (u >= HANDOFF) {
+          const v = (u - HANDOFF) / (1 - HANDOFF), e = ease(v);
+          dist = DIST + (far - DIST) * e * e;
+          visit.earthFade = 1 - smooth(0.2, 0.7, v);
+          visit.grow = e;
+        }
+        distTarget = dist;
+        if (u >= 1) { visit.phase = 'there'; visit.autoAt = t; }
+      } else if (visit.phase === 'there') {
+        if (t > visit.autoAt) visit.az += dt * 3 * RAD;            // a slow orbit
+        visit.grow = 1; visit.earthFade = 0;
+      } else {
+        const u = Math.min(1, (t - visit.start) / BACK_MS), bk = visit.back;
+        const a = ease(u / 0.3);
+        visit.az = bk.az * (1 - a); visit.el = bk.el * (1 - a); visit.zoom = bk.zoom + (1 - bk.zoom) * a;
+        const v = Math.max(0, (u - 0.3) / 0.7), e = ease(v);
+        visit.grow = bk.grow * (1 - e);
+        visit.earthFade = smooth(0.3, 0.8, v);
+        dist = far + (DIST - far) * (1 - Math.pow(1 - e, 2));
+        distTarget = dist;
+        if (u >= 1) {
+          visit = null; dist = distTarget = DIST; held = false;
+          flyTo(rest, 400, 3000, true);
+          if (onVisit) onVisit(null);
+        }
+      }
+    }
+
+    /** The camera while visiting: the Earth's view handed over at the moment the world is dead ahead, then orbiting. */
+    function visitCamera(c2vEarth) {
+      if (!visit.base) {
+        if (visit.u < HANDOFF) return c2vEarth;
+        visit.base = tr(c2vEarth);
+      }
+      const P = unit(POLES[visit.id][1], POLES[visit.id][0]);
+      let m = mul(rotAxis(P, visit.az), visit.base);
+      const right = [m[0][0], m[1][0], m[2][0]];
+      m = mul(rotAxis(norm(right), visit.el), m);
+      return tr(m);
+    }
+
+    function drawWorld(fr, sz, k, cx, cy) {
+      const cfg = WORLDS[visit.id];
+      if (!visit.tex || (cfg.rings && !visit.ring)) return;
+      const b = fr.sky.bodies.filter(function (x) { return x.id === visit.id; })[0];
+      const P = unit(POLES[visit.id][1], POLES[visit.id][0]);
+      let M;
+      if (visit.id === 'moon') {
+        const toEarth = norm([-b.pos[0], -b.pos[1], -b.pos[2]]);             // the near side faces us
+        M = norm([toEarth[0] - P[0] * dot(toEarth, P), toEarth[1] - P[1] * dot(toEarth, P), toEarth[2] - P[2] * dot(toEarth, P)]);
+      } else {
+        const d = fr.sky.days, sp = SPIN[visit.id], W = (sp[0] + sp[1] * d) * RAD;
+        const e1 = norm(cross([0, 1, 0], P)), e2 = cross(P, e1);
+        M = [e1[0] * Math.cos(W) + e2[0] * Math.sin(W), e1[1] * Math.cos(W) + e2[1] * Math.sin(W), e1[2] * Math.cos(W) + e2[2] * Math.sin(W)];
+      }
+      const rT = lay.r * cfg.size * visit.zoom, rD = visit.rDot;
+      const rEff = Math.exp(Math.log(rD) + (Math.log(rT) - Math.log(rD)) * visit.grow) * k;
+      const fW = lay.r * k * Math.sqrt(3.0 * 3.0 - 1);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.useProgram(world.p);
+      const loc = quadAttr(world);
+      gl.uniform2f(world.u.uC, cx, cy); gl.uniform1f(world.u.uF, fW);
+      gl.uniform1f(world.u.uD, Math.sqrt((fW / rEff) * (fW / rEff) + 1));
+      gl.uniformMatrix3fv(world.u.uV2C, false, gl3(tr(fr.c2v)));
+      gl.uniform3fv(world.u.uPole, P); gl.uniform3fv(world.u.uMer, M);
+      gl.uniform3fv(world.u.uSunDir, b.sunward);
+      gl.uniform1f(world.u.uKind, cfg.kind); gl.uniform1f(world.u.uFade, Math.min(1, visit.grow * 4 + 0.2));
+      gl.uniform3fv(world.u.uAtm, cfg.atm || [0, 0, 0]);
+      gl.uniform1f(world.u.uRingIn, cfg.rings ? cfg.rings[0] : 0); gl.uniform1f(world.u.uRingOut, cfg.rings ? cfg.rings[1] : 0);
+      gl.uniform1i(world.u.uTex, 5); gl.uniform1i(world.u.uRing, 6);
+      if (!cfg.rings) { gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D, tex.world); }
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      gl.disableVertexAttribArray(loc);
+    }
+
+    function visitShift() { return lay.r * 0.32 * visit.grow * (lay.cx < canvas.clientWidth / 2 ? 1 : -1); }
+
+    function visitDrag(dx, dy) {
+      if (!visit || visit.phase !== 'there') return;
+      const r = Math.max(60, lay.r);
+      visit.az -= dx / r * 0.9;
+      visit.el = Math.max(-1.35, Math.min(1.35, visit.el - dy / r * 0.9));
+      visit.autoAt = performance.now() + 5000;                       // you're steering: no auto-orbit for a moment
+      if (!running) draw(lastNow);
+    }
+    function visitZoom(kz) { if (visit && visit.phase === 'there') visit.zoom = Math.max(0.45, Math.min(2.4, visit.zoom * kz)); }
+
+    /** The Sun, Moon or planet under a point on screen (CSS px), or null. */
+    function bodyAt(x, y) {
+      if (!frameInfo || visit) return null;
+      let best = null, bd = 1e9;
+      frameInfo.bodies.forEach(function (b) {
+        if (!b.onScreen || b.behind || !WORLDS[b.id]) return;
+        const r = (b.id === 'sun' ? 0.016 * frameInfo.fs : b.r) + 10, d = Math.hypot(b.x - x, b.y - y);
+        if (d < r && d < bd) { bd = d; best = b.id; }
+      });
+      return best;
+    }
+    let onVisit = null;
+
     /** Where a place on Earth sits on screen (CSS px) and whether it faces us. */
     function project(lat, lon) {
       const v = app(tr(rotation()), unit(lat, lon));
@@ -824,7 +1106,8 @@
       if (t - lastFrame < 33) return;                // 30 frames a second is plenty for a wallpaper
       lastFrame = t;
       sway.x += (sway.tx - sway.x) * 0.06; sway.y += (sway.ty - sway.y) * 0.06;
-      stepZoom();
+      stepVisit();
+      if (!visit) stepZoom();
       draw(Date.now());
     }
 
@@ -924,6 +1207,8 @@
       start: start, stop: stop, setClouds: setClouds, view: view, rest: rest,
       setPlanes: setPlanes, planeNear: planeNear, planeScreen: planeScreen, planeAt: planeAt, setSelected: setSelected, setHovered: setHovered,
       setRoute: setRoute, lookAt: lookAt, hold: hold, zoomBy: zoomBy, zoom: zoom, setMaps: setMaps, placeAt: placeAt,
+      bodyAt: bodyAt, visit: visitTo, leave: visitLeave, visitDrag: visitDrag, visitZoom: visitZoom,
+      visiting: function () { return visit ? visit.id : null; }, set onVisit(f) { onVisit = f; },
       set onReady(f) { onReady = f; if (ready) f(); }, set onFrame(f) { onFrame = f; }
     };
   }
