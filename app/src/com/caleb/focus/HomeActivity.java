@@ -31,6 +31,7 @@ public class HomeActivity extends Activity {
     private TextView updText;
     private FlowLayout apps;
     private LinearLayout dock;
+    private int themeAt;
     private TextView action;
     private String shownKey = "";
     private long undoUntil;
@@ -42,6 +43,7 @@ public class HomeActivity extends Activity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        themeAt = Theme.version(this);
         Ui.init(this);
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Ui.BG);
@@ -68,7 +70,7 @@ public class HomeActivity extends Activity {
         clock = Ui.mono(this, "", 12, 0xFFB4B7BE);
         head.addView(clock);
         head.addView(Ui.space(this));
-        pill = Ui.stone(this, "", Ui.ICE_SOFT, 0x29AACFF6, 999, 12);
+        pill = Ui.stone(this, "", Ui.ICE_SOFT, Ui.ice(0x29), 999, 12);
         pill.setTypeface(Ui.SORA_SEMI);
         pill.setPadding(Ui.dp(this, 12), Ui.dp(this, 6), Ui.dp(this, 12), Ui.dp(this, 6));
         pill.setOnClickListener(new View.OnClickListener() {
@@ -169,7 +171,7 @@ public class HomeActivity extends Activity {
         nav.addView(navItem("Presets", PresetsActivity.class), new LinearLayout.LayoutParams(0, Ui.dp(this, 48), 1f));
         nav.addView(navItem("Setup", SetupActivity.class), new LinearLayout.LayoutParams(0, Ui.dp(this, 48), 1f));
         View line = new View(this);
-        line.setBackgroundColor(0x24A0BEF0);
+        line.setBackgroundColor(Ui.ice(0x24));
         col.addView(line, Ui.lp(Ui.MATCH, Math.max(1, Ui.dp(this, 1)), Ui.dp(this, 12)));
         col.addView(nav, Ui.lp(Ui.MATCH, Ui.WRAP));
 
@@ -194,7 +196,8 @@ public class HomeActivity extends Activity {
         new Thread(new Runnable() {
             @Override public void run() {
                 try {
-                    android.graphics.Bitmap b = android.graphics.BitmapFactory.decodeResource(c.getResources(), R.drawable.sky_night);
+                    android.graphics.Bitmap b = Theme.fall(c) && Theme.hasPhoto(c) ? Theme.photo(c)
+                            : android.graphics.BitmapFactory.decodeResource(c.getResources(), R.drawable.sky_night);
                     android.app.WallpaperManager.getInstance(c).setBitmap(b, null, true,
                             android.app.WallpaperManager.FLAG_SYSTEM | android.app.WallpaperManager.FLAG_LOCK);
                 } catch (Throwable ignored) { }
@@ -228,6 +231,7 @@ public class HomeActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (themeAt != Theme.version(this)) { recreate(); return; }   // a new theme or photo: build the screen again
         render(true);
         Sync.ensure(this);
         Updater.check(this, false, new Updater.Callback() {
@@ -258,7 +262,7 @@ public class HomeActivity extends Activity {
         clock.setText(new SimpleDateFormat("h:mm a · EEE", Locale.US).format(new Date(now)).toUpperCase(Locale.US));
         pill.setText(cur.title);
         pill.setTextColor(god ? Ui.GOLD : Ui.ICE_SOFT);
-        pill.setBackground(new Ui.StoneDrawable(this, Ui.STONE, god ? Ui.BORDER_GOLD : 0x29AACFF6, 999));
+        pill.setBackground(new Ui.StoneDrawable(this, Ui.STONE, god ? Ui.BORDER_GOLD : Ui.ice(0x29), 999));
         banner.setVisibility(FocusService.isOn(this) ? View.GONE : View.VISIBLE);
         sky.setDawn(god);
         dial.setGold(god);
@@ -287,7 +291,7 @@ public class HomeActivity extends Activity {
         for (int i = 0; i < next.size(); i++) {
             Store.Slot n = next.get(i);
             LinearLayout card = Ui.column(this);
-            card.setBackground(new Ui.StoneDrawable(this, Ui.STONE, 0x1AAACFF6, 16));
+            card.setBackground(new Ui.StoneDrawable(this, Ui.STONE, Ui.ice(0x1A), 16));
             card.setPadding(Ui.dp(this, 12), Ui.dp(this, 10), Ui.dp(this, 12), Ui.dp(this, 10));
             card.addView(Ui.text(this, Ui.clock(n.start), 11, Ui.MUTED, Ui.MONO));
             TextView tt = Ui.text(this, n.title, 13, Ui.INK, Ui.SORA_MED);
@@ -415,7 +419,7 @@ public class HomeActivity extends Activity {
                 float r = Math.min(b.width(), b.height()) / 2f, cx = b.exactCenterX(), cy = b.exactCenterY();
                 pt.setStyle(android.graphics.Paint.Style.STROKE);
                 pt.setStrokeWidth(Math.max(1f, r / 32f));
-                pt.setColor(0x33AACFF6);
+                pt.setColor(Ui.ice(0x33));
                 pt.setPathEffect(new android.graphics.DashPathEffect(new float[]{r / 6f, r / 8f}, 0));
                 c.drawCircle(cx, cy, r - pt.getStrokeWidth(), pt);
                 pt.setPathEffect(null);
@@ -487,7 +491,7 @@ public class HomeActivity extends Activity {
             c.drawCircle(cx, cy, s / 2f, p);
             p.setStyle(android.graphics.Paint.Style.STROKE);
             p.setStrokeWidth(Math.max(1f, s / 64f));
-            p.setColor(0x2EAACFF6);
+            p.setColor(Ui.ice(0x2E));
             c.drawCircle(cx, cy, s / 2f - p.getStrokeWidth() / 2f, p);
             float g = s * 0.30f;
             p.setColor(Ui.ICE_SOFT);

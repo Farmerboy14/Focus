@@ -14,9 +14,14 @@
   .sky .dawn { transition: opacity 2.4s ease; }
   #stars { position: absolute; inset: -12px; width: calc(100% + 24px); height: calc(100% + 24px); pointer-events: none; }
   .b.hit { cursor: pointer; }
-  .b.hit:hover { background-color: rgba(170, 207, 246, .05); }
+  .b.hit:hover { background-color: rgba(var(--ice-rgb), .05); }
   .b .more2 { grid-column: 2; font-size: .95rem; line-height: 1.45; color: var(--soft); display: none; }
   .b.open .more2 { display: block; }
+  body.theme-fall .sky, body.theme-fall #stars { display: none; }
+  .photo { background-size: cover; background-position: center 30%; }
+  .photo::before { content: ''; position: absolute; inset: -30px; background: inherit; filter: blur(10px) brightness(.4); }
+  .photo::after { background: rgba(10, 6, 3, .35); }
+  body.theme-fall .shade { display: none; }
   .shade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, rgba(4, 6, 11, .55), rgba(4, 6, 11, .25) 40%, rgba(4, 6, 11, .5)); }
 
   .page { position: absolute; inset: 4.6rem 6.5rem 6rem; display: flex; flex-direction: column; }
@@ -28,7 +33,7 @@
 
   /* The day bar: every block from waking to sleep, with a star at now */
   .bar { position: relative; margin-top: 2.6rem; height: 4.8rem; }
-  .track { position: absolute; left: 0; right: 0; top: 1.2rem; height: 1.1rem; border-radius: 1rem; background: rgba(170, 207, 246, .06); overflow: hidden; }
+  .track { position: absolute; left: 0; right: 0; top: 1.2rem; height: 1.1rem; border-radius: 1rem; background: rgba(var(--ice-rgb), .06); overflow: hidden; }
   .seg { position: absolute; top: 0; bottom: 0; border-right: 2px solid rgba(5, 7, 12, .9); }
   .seg.past { opacity: .35; }
   .seg.cur { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .5); }
@@ -49,7 +54,7 @@
   .b.god .n { color: var(--gold); }
   .b.past { opacity: .38; }
   .b.past .n { text-decoration: line-through; text-decoration-color: rgba(220, 225, 235, .35); }
-  .b.cur { background-color: rgba(6, 9, 16, .72); background-image: var(--grain); background-size: 6rem; border-color: rgba(170, 207, 246, .2); padding: 1rem .9rem; }
+  .b.cur { background-color: rgba(6, 9, 16, .72); background-image: var(--grain); background-size: 6rem; border-color: rgba(var(--ice-rgb), .2); padding: 1rem .9rem; }
   .b.cur.god { border-color: rgba(242, 211, 138, .34); }
   .b.cur .n { white-space: normal; font-size: 1.32rem; font-weight: 500; color: var(--ink); }
   .b.cur.god .n { color: var(--gold); }
@@ -63,6 +68,8 @@
 <body>
 <div class="sky" id="sky" aria-hidden="true"><img src="../res/img/desk_night.jpg" alt=""><img class="dawn" src="../res/img/desk_dawn.jpg" alt=""></div>
 <canvas id="stars" aria-hidden="true"></canvas>
+<div class="photo" id="photo" aria-hidden="true"></div>
+<canvas id="leaves" aria-hidden="true"></canvas>
 <div class="shade" aria-hidden="true"></div>
 <main class="page">
   <header class="head">
@@ -84,6 +91,7 @@
 <script src="../lib/schedule.js"></script>
 <script src="common.js"></script>
 <script src="stars.js"></script>
+<script src="leaves.js"></script>
 <script src="daymap.js"></script>
 </body>
 </html>

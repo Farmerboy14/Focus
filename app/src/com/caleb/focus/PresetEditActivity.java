@@ -205,7 +205,7 @@ public class PresetEditActivity extends Activity {
                 txt = "free".equals(id) ? "ALLOWED" : "FREE TIME ONLY"; col = Ui.QUIET; edge = 0x0FFFFFFF;
             } else {
                 int m = s.modeIn(c, preset, a.pkg);
-                if (m == Store.ALLOW) { txt = "ALLOWED"; col = Ui.INK; edge = 0x29AACFF6; }
+                if (m == Store.ALLOW) { txt = "ALLOWED"; col = Ui.INK; edge = Ui.ice(0x29); }
                 else if (m == Store.REASON) { txt = "NEEDS A REASON"; col = Ui.GOLD; edge = 0x4DF2D38A; }
                 else { txt = "BLOCKED"; col = Ui.QUIET; edge = 0x14FFFFFF; }
             }

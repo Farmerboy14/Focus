@@ -18,6 +18,33 @@
 
   if (still) document.body.classList.add('still');
 
+  // ---------- themes ----------
+  // Night: space and the Earth. Fall: your photo (picked in Settings, kept on this PC) with leaves drifting down.
+  const leaves = window.FocusLeaves.Leaves($('leaves'), { seed: 41 });
+  let themeNow = null, photoAt = -1, photoReady = false;
+  function applyTheme() {
+    const fall = !!(st && st.settings && st.settings.theme === 'fall');
+    document.body.classList.toggle('theme-fall', fall);
+    if (fall && st.settings.themePhotoAt !== photoAt) {
+      photoAt = st.settings.themePhotoAt;
+      photoReady = false;
+      api.invoke('theme:photo').then(function (url) {
+        $('photo').style.backgroundImage = url ? 'url("' + url + '")' : '';
+        photoReady = true;
+        maybeDrawn();
+      }).catch(function () { photoReady = true; maybeDrawn(); });
+    }
+    if (fall === themeNow) return;
+    themeNow = fall;
+    if (fall) {
+      if (globe) { if (globe.visiting && globe.visiting()) closeWorld(); if (flights.sel) closeFlight(); globe.stop(); }
+      if (still) leaves.still(); else if (!paused) leaves.start();
+    } else {
+      leaves.stop();
+      if (globe && globeDone && !paused && !still) globe.start();
+    }
+  }
+
   // ---------- space: the Earth, the sky, the Moon and planets ----------
 
   const stars = window.FocusStars.Stars($('stars'), { still: still });   // only if WebGL isn't there
@@ -30,7 +57,7 @@
     document.body.classList.add('gl');
     layoutScene();
     globe.onFrame = function () { placeHome(); placeLabels(); placeFlightMarker(); };
-    globe.onReady = function () { globeDone = true; layoutScene(); placeHome(); placeLabels(); if (!still && !paused) globe.start(); maybeDrawn(); };
+    globe.onReady = function () { globeDone = true; layoutScene(); placeHome(); placeLabels(); if (!still && !paused && !themeNow) globe.start(); maybeDrawn(); };
   } catch (e) {
     console.warn('space: ' + (e && e.message));
     globe = null; globeDone = true; document.body.classList.remove('gl'); $('earth').classList.add('hidden');
@@ -176,7 +203,7 @@
   function pollFlights() {
     clearTimeout(flights.timer);
     if (still || !globe) return;
-    if (!paused) {
+    if (!paused && !themeNow) {
       api.invoke('flights:get', { w: flights.w, n: flights.n }).then(function (r) {
         if (!r || r.error) return;
         let changed = false;
@@ -384,7 +411,8 @@
     paused = !!p;
     document.body.classList.toggle('paused', paused);
     if (still) return;
-    if (globe) { if (paused) globe.stop(); else if (globeDone) globe.start(); }
+    if (themeNow) { if (paused) leaves.stop(); else leaves.start(); }
+    else if (globe) { if (paused) globe.stop(); else if (globeDone) globe.start(); }
     else if (paused) stars.stop(); else stars.start();
     if (!paused) { render(); pollFlights(); }
   });
@@ -408,7 +436,7 @@
 
   function maybeDrawn() {
     if (drawnSent || !st) return;
-    if (still && !(bibleDone && globeDone)) return;
+    if (still && !(bibleDone && (themeNow ? photoReady : globeDone))) return;
     drawnSent = true;
     document.fonts.ready.then(function () { requestAnimationFrame(function () { requestAnimationFrame(function () { api.invoke('desk:drawn'); }); }); });
   }
@@ -425,6 +453,7 @@
     const d = new Date(t);
     document.body.classList.toggle('gold', god);
     document.body.classList.toggle('side-left', st.settings && st.settings.deskSide === 'left');
+    applyTheme();
     $('sky').classList.toggle('dawn', god);
 
     $('date').textContent = upper(d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }));

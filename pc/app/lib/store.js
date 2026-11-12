@@ -14,7 +14,7 @@ function defaults() {
     yt: { day: '', usedSec: 0 },
     seen: {},
     steps: {},
-    settings: { startWithWindows: true, showWidget: true, widget: null, desktop: true, deskSide: 'right', deskStyle: 'live', deskSecond: 'day', origWall: null, phoneWifi: true, phoneAddr: '' },
+    settings: { startWithWindows: true, showWidget: true, widget: null, desktop: true, deskSide: 'right', deskStyle: 'live', deskSecond: 'day', theme: 'night', themePhotoAt: 0, origWall: null, phoneWifi: true, phoneAddr: '' },
     pair: { code: '', lastId: '' }
   };
 }
@@ -73,6 +73,8 @@ function sanitize(raw) {
     if (raw.settings.deskStyle === 'live' || raw.settings.deskStyle === 'picture') d.settings.deskStyle = raw.settings.deskStyle;
     if (raw.settings.deskSecond === 'day' || raw.settings.deskSecond === 'same') d.settings.deskSecond = raw.settings.deskSecond;
     if (typeof raw.settings.phoneWifi === 'boolean') d.settings.phoneWifi = raw.settings.phoneWifi;
+    if (raw.settings.theme === 'night' || raw.settings.theme === 'fall') d.settings.theme = raw.settings.theme;
+    if (Number.isFinite(raw.settings.themePhotoAt)) d.settings.themePhotoAt = raw.settings.themePhotoAt;
     if (typeof raw.settings.phoneAddr === 'string' && /^[0-9.]{7,15}:\d{1,5}$/.test(raw.settings.phoneAddr)) d.settings.phoneAddr = raw.settings.phoneAddr;
     if (typeof raw.settings.scrcpyPath === 'string') d.settings.scrcpyPath = raw.settings.scrcpyPath.slice(0, 1000);
     if (Number.isFinite(raw.settings.phoneAspect) && raw.settings.phoneAspect > 0.2 && raw.settings.phoneAspect < 1) d.settings.phoneAspect = raw.settings.phoneAspect;

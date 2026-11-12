@@ -86,6 +86,7 @@
   // ---------- render ----------
 
   function render(entering) {
+    document.body.classList.toggle('theme-fall', !!(st && st.settings && st.settings.theme === 'fall'));
     if (!st) return;
     const t = now();
     const cur = st.cur;
@@ -722,7 +723,17 @@
     }
   }
 
+  function renderTheme() {
+    const t = st.settings.theme === 'fall' ? 'fall' : 'night';
+    document.body.classList.toggle('theme-fall', t === 'fall');
+    $('theme').querySelectorAll('button').forEach(function (b) { b.classList.toggle('on', b.dataset.v === t); });
+    document.querySelectorAll('.themeopt').forEach(function (r) { r.classList.toggle('hidden', t !== 'fall'); });
+    $('themeMsg').textContent = st.settings.themePhotoAt ? 'Your photo is the desktop wallpaper, with leaves falling.' : 'Pick a photo for the desktop. It stays on this PC.';
+    $('themePick').textContent = st.settings.themePhotoAt ? 'Change photo…' : 'Choose photo…';
+  }
+
   function renderDesk() {
+    renderTheme();
     const on = !!st.settings.desktop;
     $('tDesk').classList.toggle('on', on);
     $('tDesk').setAttribute('aria-checked', on ? 'true' : 'false');
@@ -738,6 +749,20 @@
           d.mode === 'unsupported' ? (d.why || 'Not available here.') :
             d.mode === 'starting' ? (d.why || 'Putting it on your desktop…') : '';
   }
+  $('theme').addEventListener('click', function (e) {
+    const b = e.target.closest('button');
+    if (!b) return;
+    call('settings:set', { theme: b.dataset.v }).then(function (s) {
+      apply(s);
+      if (b.dataset.v === 'fall' && !s.settings.themePhotoAt) $('themePick').click();
+    });
+  });
+  $('themePick').addEventListener('click', function () {
+    call('theme:pick').then(function (s) {
+      if (s && s.error) toast(s.error);
+      else if (s && s.settings) { apply(s); toast('Fall theme on, with your photo.'); }
+    });
+  });
   $('tDesk').addEventListener('click', function () { call('settings:set', { desktop: !st.settings.desktop }).then(function (s) { apply(s); }); });
   ['deskSide', 'deskStyle', 'deskSecond'].forEach(function (id) {
     $(id).addEventListener('click', function (e) {

@@ -26,6 +26,19 @@
   .blabel.sun { color: rgba(255, 226, 170, .8); }
   .blabel.moon { color: rgba(232, 232, 238, .74); }
   body.still .labels { display: none; }
+  /* Fall: the photo instead of space. Shaded toward the schedule so it stays easy to read. */
+  body.theme-fall #space, body.theme-fall .labels, body.theme-fall .earth, body.theme-fall .shade, body.theme-fall .sky, body.theme-fall #stars,
+  body.theme-fall .pmark, body.theme-fall .ptip { display: none !important; }
+  /* the whole photo, softly blurred and dimmed, fills the screen; the sharp photo fills the open side, fading into it */
+  .photo { background-size: cover; background-position: center; }
+  .photo::before { content: ''; position: absolute; inset: -40px; background: inherit; filter: blur(28px) brightness(.45) saturate(1.1); }
+  .photo .sharp { position: absolute; top: 0; bottom: 0; left: 0; right: 37rem; background: inherit; background-size: cover; background-position: center 30%;
+    -webkit-mask-image: linear-gradient(to left, transparent 0, #000 9rem); }
+  body.side-left .photo .sharp { left: 37rem; right: 0; -webkit-mask-image: linear-gradient(to right, transparent 0, #000 9rem); }
+  .photo::after { background: linear-gradient(to left, rgba(10, 6, 3, .55) 0, rgba(10, 6, 3, .35) 36rem, transparent 52%),
+    linear-gradient(to bottom, rgba(10, 6, 3, .3), transparent 16%, transparent 82%, rgba(10, 6, 3, .4)); }
+  body.side-left .photo::after { background: linear-gradient(to right, rgba(10, 6, 3, .55) 0, rgba(10, 6, 3, .35) 36rem, transparent 52%),
+    linear-gradient(to bottom, rgba(10, 6, 3, .3), transparent 16%, transparent 82%, rgba(10, 6, 3, .4)); }
 
   /* Live flights */
   body.onplane #space, body.onworld #space { cursor: pointer; }
@@ -43,10 +56,10 @@
   @keyframes rise { from { opacity: 0; transform: translateY(.6rem); } to { opacity: 1; transform: none; } }
   .flight .top { display: flex; align-items: center; justify-content: space-between; }
   .flight .top span { font-family: var(--mono); font-size: .7rem; letter-spacing: .2em; color: var(--gold-deep); }
-  .flight .x { width: 2rem; height: 2rem; border-radius: 50%; font-size: 1.2rem; line-height: 1; color: var(--muted); border: 1px solid rgba(170, 207, 246, .14); background: none; }
-  .world .x { width: 2rem; height: 2rem; border-radius: 50%; font-size: 1.2rem; line-height: 1; color: var(--muted); border: 1px solid rgba(170, 207, 246, .14); background: none; }
-  .world .x:hover { color: var(--ink); border-color: rgba(170, 207, 246, .4); }
-  .flight .x:hover { color: var(--ink); border-color: rgba(170, 207, 246, .4); }
+  .flight .x { width: 2rem; height: 2rem; border-radius: 50%; font-size: 1.2rem; line-height: 1; color: var(--muted); border: 1px solid rgba(var(--ice-rgb), .14); background: none; }
+  .world .x { width: 2rem; height: 2rem; border-radius: 50%; font-size: 1.2rem; line-height: 1; color: var(--muted); border: 1px solid rgba(var(--ice-rgb), .14); background: none; }
+  .world .x:hover { color: var(--ink); border-color: rgba(var(--ice-rgb), .4); }
+  .flight .x:hover { color: var(--ink); border-color: rgba(var(--ice-rgb), .4); }
   .flight h3 { margin: .5rem 0 0; font-weight: 500; font-size: 1.9rem; letter-spacing: -.01em; color: #F6EAD0; }
   .flight .al { margin-top: .15rem; font-size: .98rem; color: var(--soft); min-height: 1.2rem; }
   .flight img { display: block; width: 100%; height: 8.5rem; object-fit: cover; border-radius: .9rem; margin-top: .9rem; opacity: .92; }
@@ -55,11 +68,11 @@
   .flight .end b { display: block; font-family: var(--mono); font-weight: 400; font-size: 1.25rem; letter-spacing: .06em; color: var(--ink); }
   .flight .end span { display: block; font-size: .78rem; color: var(--muted); max-width: 6.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .flight .end:last-child { text-align: right; }
-  .flight .bar { position: relative; height: 2px; background: rgba(170, 207, 246, .16); border-radius: 2px; }
+  .flight .bar { position: relative; height: 2px; background: rgba(var(--ice-rgb), .16); border-radius: 2px; }
   .flight .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(255, 228, 170, .8); border-radius: 2px; }
   .flight .bar em { position: absolute; top: 50%; width: .55rem; height: .55rem; margin: -.275rem 0 0 -.275rem; border-radius: 50%; background: #FFE7B0; box-shadow: 0 0 .6rem rgba(255, 220, 150, .7); }
   .flight .left2 { margin-top: .55rem; font-family: var(--mono); font-size: .7rem; letter-spacing: .12em; color: var(--muted); }
-  .flight .facts { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem 1rem; margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid rgba(170, 207, 246, .1); }
+  .flight .facts { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem 1rem; margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid rgba(var(--ice-rgb), .1); }
   .flight .facts span { display: block; font-family: var(--mono); font-size: .62rem; letter-spacing: .16em; color: var(--quiet); }
   .flight .facts b { display: block; margin-top: .2rem; font-weight: 400; font-size: 1rem; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .flight .own { margin-top: .9rem; font-size: .82rem; color: var(--muted); }
@@ -81,14 +94,14 @@
   .world .top span { font-family: var(--mono); font-size: .7rem; letter-spacing: .2em; color: var(--gold-deep); }
   .world h3 { margin: .45rem 0 0; font-family: var(--serif); font-weight: 400; font-size: 2.5rem; line-height: 1.05; color: #F6EAD0; }
   .world .what { margin-top: .3rem; font-size: .98rem; color: var(--soft); }
-  .world .wnow { margin-top: 1rem; padding: .85rem 1rem; border-radius: .9rem; background: rgba(170, 207, 246, .05); border: 1px solid rgba(170, 207, 246, .1);
+  .world .wnow { margin-top: 1rem; padding: .85rem 1rem; border-radius: .9rem; background: rgba(var(--ice-rgb), .05); border: 1px solid rgba(var(--ice-rgb), .1);
     font-size: .95rem; line-height: 1.5; color: #DADDE3; }
   .world .wnow b { font-weight: 500; color: var(--ink); }
   .world .facts { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem 1rem; margin-top: 1.1rem; }
   .world .facts span { display: block; font-family: var(--mono); font-size: .6rem; letter-spacing: .14em; color: var(--quiet); }
   .world .facts b { display: block; margin-top: .2rem; font-weight: 400; font-size: 1rem; color: var(--ink); }
   .world .note { margin-top: 1rem; font-size: .95rem; line-height: 1.5; color: var(--soft); }
-  .world .vs { margin-top: 1rem; padding-top: .9rem; border-top: 1px solid rgba(170, 207, 246, .1); }
+  .world .vs { margin-top: 1rem; padding-top: .9rem; border-top: 1px solid rgba(var(--ice-rgb), .1); }
   .world .vs q { quotes: none; display: block; font-family: var(--serif); font-style: italic; font-size: 1.05rem; line-height: 1.4; color: #EFEDE6; }
   .world .vs span { display: block; margin-top: .35rem; font-family: var(--mono); font-size: .62rem; letter-spacing: .16em; color: var(--muted); }
   .world .vs.hit:hover span { color: var(--gold-deep); }
@@ -123,12 +136,12 @@
 
   /* Things you can touch: they answer the mouse even through the desktop */
   .hit { cursor: pointer; transition: background-color .25s ease, border-color .25s ease, transform .3s var(--spring), color .25s ease; }
-  .card.hit:hover { border-color: rgba(170, 207, 246, .3); }
+  .card.hit:hover { border-color: rgba(var(--ice-rgb), .3); }
   body.gold .card.hit:hover { border-color: rgba(242, 211, 138, .45); }
   .actions { display: flex; gap: .7rem; margin-top: 1.1rem; }
   .act { display: inline-flex; align-items: center; gap: .55rem; min-height: 2.7rem; padding: 0 1.15rem; border-radius: 999px; font-size: .98rem; color: #E6E9EF;
-    background-color: rgba(6, 9, 16, .66); border: 1px solid rgba(170, 207, 246, .14); backdrop-filter: blur(4px); }
-  .act:hover { border-color: rgba(170, 207, 246, .36); background-color: rgba(14, 20, 34, .8); transform: translateY(-1px); }
+    background-color: rgba(6, 9, 16, .66); border: 1px solid rgba(var(--ice-rgb), .14); backdrop-filter: blur(4px); }
+  .act:hover { border-color: rgba(var(--ice-rgb), .36); background-color: rgba(14, 20, 34, .8); transform: translateY(-1px); }
   .act:active { transform: translateY(1px) scale(.97); }
   .act.gold { color: var(--gold); border-color: rgba(242, 211, 138, .22); }
   .act.gold:hover { border-color: rgba(242, 211, 138, .5); }
@@ -140,7 +153,7 @@
   .clock small { font-size: 2.2rem; letter-spacing: .02em; margin-left: .8rem; color: var(--muted); font-weight: 400; }
 
   .card { margin-top: 2.4rem; border-radius: 1.6rem; padding: 1.4rem 1.8rem 1.4rem 1.2rem; display: grid; grid-template-columns: 12.5rem minmax(0, 1fr); gap: 1.4rem; align-items: center;
-    background-color: rgba(6, 9, 16, .74); border-color: rgba(170, 207, 246, .14); background-size: 6rem; }
+    background-color: rgba(6, 9, 16, .74); border-color: rgba(var(--ice-rgb), .14); background-size: 6rem; }
   body.gold .card { border-color: rgba(242, 211, 138, .26); }
   .dialhost { width: 12.5rem; height: 12.5rem; }
   .dialhost svg { width: 100%; height: 100%; }
@@ -156,7 +169,7 @@
 
   .later { margin-top: 2rem; padding: 0 .4rem; }
   .later .label { font-size: .78rem; letter-spacing: .16em; display: block; margin-bottom: .5rem; }
-  .row { display: grid; grid-template-columns: 7.2rem minmax(0, 1fr) auto; align-items: baseline; gap: 1rem; padding: .62rem 0; border-top: 1px solid rgba(170, 207, 246, .08); }
+  .row { display: grid; grid-template-columns: 7.2rem minmax(0, 1fr) auto; align-items: baseline; gap: 1rem; padding: .62rem 0; border-top: 1px solid rgba(var(--ice-rgb), .08); }
   .row:first-of-type { border-top: 0; }
   .row .t { font-family: var(--mono); font-size: .9rem; letter-spacing: .04em; color: var(--muted); font-variant-numeric: tabular-nums; }
   .row .n { font-size: 1.12rem; color: #DADDE3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -165,13 +178,13 @@
   .row.free .p { color: #BFE3C8; }
   .row.day { grid-template-columns: 1fr; padding: .9rem 0 .2rem; border-top: 0; }
   .row.hit { margin: 0 -.7rem; padding-left: .7rem; padding-right: .7rem; border-radius: .8rem; }
-  .row.hit:hover { background-color: rgba(170, 207, 246, .06); border-top-color: transparent; }
+  .row.hit:hover { background-color: rgba(var(--ice-rgb), .06); border-top-color: transparent; }
   .row .x { grid-column: 2 / 4; font-size: .98rem; line-height: 1.45; color: var(--soft); margin-top: .35rem; display: none; }
   .row.open .x { display: block; }
   .row.open .n { white-space: normal; }
   .row.day span { font-family: var(--mono); font-size: .72rem; letter-spacing: .18em; color: var(--quiet); }
 
-  .verse { margin-top: 2.2rem; padding: 1.4rem .4rem 0; border-top: 1px solid rgba(170, 207, 246, .1); }
+  .verse { margin-top: 2.2rem; padding: 1.4rem .4rem 0; border-top: 1px solid rgba(var(--ice-rgb), .1); }
   .verse q { quotes: none; display: block; font-family: var(--serif); font-style: italic; font-size: 1.42rem; line-height: 1.4; color: #EFEDE6; }
   .verse span { display: block; margin-top: .7rem; font-family: var(--mono); font-size: .74rem; letter-spacing: .16em; color: var(--muted); }
   .verse.hit { margin-left: -.7rem; margin-right: -.7rem; padding-left: 1.1rem; padding-right: 1.1rem; padding-bottom: .9rem; border-radius: 0 0 1rem 1rem; }
@@ -186,6 +199,8 @@
 <body>
 <div class="sky" id="sky" aria-hidden="true"><img src="../res/img/desk_night.jpg" alt=""><img class="dawn" src="../res/img/desk_dawn.jpg" alt=""></div>
 <canvas id="stars" aria-hidden="true"></canvas>
+<div class="photo" id="photo" aria-hidden="true"><div class="sharp" id="photoSharp"></div></div>
+<canvas id="leaves" aria-hidden="true"></canvas>
 <canvas id="space" aria-label="The Earth and the sky right now. Drag to fly around the Earth."></canvas>
 <div class="labels" id="labels" aria-hidden="true"></div>
 <div class="pmark" id="planeMark" aria-hidden="true"></div>
@@ -244,6 +259,7 @@
 <script src="../lib/bible.js"></script>
 <script src="common.js"></script>
 <script src="stars.js"></script>
+<script src="leaves.js"></script>
 <script src="stars-data.js"></script>
 <script src="sky.js"></script>
 <script src="worlds.js"></script>

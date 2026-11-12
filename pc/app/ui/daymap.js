@@ -10,9 +10,28 @@
   let st = null, timer = 0;
   const openNotes = {};
   const stars = window.FocusStars.Stars($('stars'), { seed: 31 });
+  const leaves = window.FocusLeaves.Leaves($('leaves'), { seed: 57, count: 18 });
+  let fallNow = false, photoAt = -1, paused = false;
   stars.start();
+
+  /** The Fall theme: the photo, darker here so the day stays easy to read, and leaves instead of stars. */
+  function applyTheme() {
+    const fall = !!(st && st.settings && st.settings.theme === 'fall');
+    document.body.classList.toggle('theme-fall', fall);
+    if (fall && st.settings.themePhotoAt !== photoAt) {
+      photoAt = st.settings.themePhotoAt;
+      api.invoke('theme:photo').then(function (url) { $('photo').style.backgroundImage = url ? 'url("' + url + '")' : ''; }).catch(function () { });
+    }
+    if (fall === fallNow) return;
+    fallNow = fall;
+    if (paused) return;
+    if (fall) { stars.stop(); leaves.start(); } else { leaves.stop(); stars.start(); }
+  }
   window.addEventListener('mousemove', function (e) { stars.point(e.clientX / window.innerWidth * 2 - 1, e.clientY / window.innerHeight * 2 - 1); });
-  api.on('desk:pause', function (p) { if (p) stars.stop(); else { stars.start(); render(); } });
+  api.on('desk:pause', function (p) {
+    paused = !!p;
+    if (p) { stars.stop(); leaves.stop(); } else { if (fallNow) leaves.start(); else stars.start(); render(); }
+  });
 
   function upper(s) { return String(s).toUpperCase(); }
   function presetName(id) { return (st.sched.names && st.sched.names[id]) || id; }
@@ -20,6 +39,7 @@
 
   function render() {
     if (!st) return;
+    applyTheme();
     const t = Date.now();
     const cur = S.current(st.sched, t);
     const god = cur.preset === 'god';

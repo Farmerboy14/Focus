@@ -55,7 +55,9 @@
     function colors() {
       return gold
         ? { lit: '#F2D38A', dim: 'rgba(242,211,138,0.14)', big: 'rgba(242,211,138,0.40)', ring: 'rgba(242,211,138,0.07)', halo: 'rgba(247,226,174,0.25)', tip: '#FFF8E6' }
-        : { lit: '#AACFF6', dim: 'rgba(170,207,246,0.14)', big: 'rgba(170,207,246,0.25)', ring: 'rgba(170,207,246,0.07)', halo: 'rgba(207,224,250,0.22)', tip: '#F3F8FF' };
+        : document.body.classList.contains('theme-fall')
+          ? { lit: '#F0B27A', dim: 'rgba(240,178,122,0.16)', big: 'rgba(240,178,122,0.3)', ring: 'rgba(240,178,122,0.08)', halo: 'rgba(248,217,184,0.24)', tip: '#FFF4E8' }
+          : { lit: '#AACFF6', dim: 'rgba(170,207,246,0.14)', big: 'rgba(170,207,246,0.25)', ring: 'rgba(170,207,246,0.07)', halo: 'rgba(207,224,250,0.22)', tip: '#F3F8FF' };
     }
 
     function paint(f) {

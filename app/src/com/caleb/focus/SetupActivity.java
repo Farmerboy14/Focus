@@ -156,7 +156,37 @@ public class SetupActivity extends Activity {
         inote.setLineSpacing(0, 1.3f);
         list.addView(inote, Ui.lp(Ui.MATCH, Ui.WRAP));
 
-        TextView wall = Ui.chip(this, "Use the Focus night sky on home and lock screen", false);
+        // Themes
+        list.addView(Ui.label(this, "Theme"), Ui.lp(Ui.WRAP, Ui.WRAP, Ui.dp(this, 22)));
+        LinearLayout tr = Ui.row(this);
+        final boolean isFall = Theme.fall(this);
+        TextView tNight = Ui.chip(this, "Night sky", !isFall);
+        TextView tFall = Ui.chip(this, "Fall", isFall);
+        tNight.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { if (Theme.fall(SetupActivity.this)) { Theme.set(SetupActivity.this, Theme.NIGHT); recreate(); } }
+        });
+        tFall.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                if (!Theme.fall(SetupActivity.this)) { Theme.set(SetupActivity.this, Theme.FALL); if (Theme.hasPhoto(SetupActivity.this)) recreate(); else pickPhoto(); }
+            }
+        });
+        tr.addView(tNight);
+        LinearLayout.LayoutParams tfl = new LinearLayout.LayoutParams(Ui.WRAP, Ui.WRAP);
+        tfl.leftMargin = Ui.dp(this, 8);
+        tr.addView(tFall, tfl);
+        list.addView(tr, Ui.lp(Ui.WRAP, Ui.WRAP, Ui.dp(this, 10)));
+        if (isFall) {
+            TextView pick = Ui.chip(this, Theme.hasPhoto(this) ? "Choose a different photo" : "Choose your photo", false);
+            pick.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) { pickPhoto(); } });
+            list.addView(pick, Ui.lp(Ui.WRAP, Ui.WRAP, Ui.dp(this, 10)));
+        }
+        TextView tnote = Ui.text(this, isFall
+                ? "Your photo fills the background with leaves drifting down, and the accents turn amber. The photo stays on this phone. Time with God keeps its dawn sky."
+                : "Stars and ice blue. Fall puts your own photo behind everything, with warm colors and falling leaves.", 12, Ui.MUTED, Ui.SORA);
+        tnote.setLineSpacing(0, 1.3f);
+        list.addView(tnote, Ui.lp(Ui.MATCH, Ui.WRAP, Ui.dp(this, 8)));
+
+        TextView wall = Ui.chip(this, isFall && Theme.hasPhoto(this) ? "Use your photo on the home and lock screen" : "Use the Focus night sky on home and lock screen", false);
         wall.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
                 HomeActivity.matchWallpaper(SetupActivity.this, true);
@@ -231,5 +261,47 @@ public class SetupActivity extends Activity {
             @Override public void onClick(View v) { try { go.run(); } catch (Throwable ignored) { } }
         });
         list.addView(row, Ui.lp(Ui.MATCH, Ui.WRAP, Ui.dp(this, 8)));
+    }
+
+    private static final int PICK_PHOTO = 21;
+
+    @Override
+    protected void onActivityResult(int req, int res, android.content.Intent data) {
+        super.onActivityResult(req, res, data);
+        if (req == PICK_PHOTO) {
+            if (res == RESULT_OK && data != null && data.getData() != null) photoPicked(data.getData());
+            else recreate();   // nothing picked: still show the Fall theme's options
+        }
+    }
+
+    /** The system photo picker: no permission needed, and Focus only sees the one photo you pick. */
+    private void pickPhoto() {
+        android.content.Intent i;
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            i = new android.content.Intent(android.provider.MediaStore.ACTION_PICK_IMAGES);
+        } else {
+            i = new android.content.Intent(android.content.Intent.ACTION_GET_CONTENT);
+            i.setType("image/*");
+        }
+        try { startActivityForResult(i, PICK_PHOTO); }
+        catch (Exception e) { android.widget.Toast.makeText(this, "Couldn't open the photo picker.", android.widget.Toast.LENGTH_SHORT).show(); }
+    }
+
+    private void photoPicked(final android.net.Uri uri) {
+        final android.content.Context app = getApplicationContext();
+        android.widget.Toast.makeText(this, "Setting your photo…", android.widget.Toast.LENGTH_SHORT).show();
+        new Thread(new Runnable() {
+            @Override public void run() {
+                boolean ok = true;
+                try { Theme.savePhoto(app, uri); } catch (Throwable t) { ok = false; }
+                final boolean done = ok;
+                runOnUiThread(new Runnable() {
+                    @Override public void run() {
+                        if (!done) android.widget.Toast.makeText(SetupActivity.this, "That photo couldn't be opened.", android.widget.Toast.LENGTH_SHORT).show();
+                        if (!isFinishing()) recreate();
+                    }
+                });
+            }
+        }, "theme-photo").start();
     }
 }

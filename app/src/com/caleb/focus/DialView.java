@@ -86,9 +86,9 @@ public class DialView extends View {
         float size = getWidth();
         float k = size / 300f;
         float cx = size / 2f, cy = size / 2f;
-        int lit = gold ? 0xFFF2D38A : 0xFFAACFF6;
-        int dim = gold ? 0x24F2D38A : 0x24AACFF6;
-        int bigDim = gold ? 0x66F2D38A : 0x40AACFF6;
+        int lit = gold ? 0xFFF2D38A : Ui.ice(0xFF);
+        int dim = gold ? 0x24F2D38A : Ui.ice(0x24);
+        int bigDim = gold ? 0x66F2D38A : Ui.ice(0x40);
 
         if (constellation) {
             ring.setColor(0x0FFFFFFF);
@@ -113,7 +113,7 @@ public class DialView extends View {
                 if (b != null) c.drawBitmap(b, null, rf, img);
             }
         }
-        ring.setColor(gold ? 0x12F2D38A : 0x12AACFF6);
+        ring.setColor(gold ? 0x12F2D38A : Ui.ice(0x12));
         ring.setStrokeWidth(1 * k);
         c.drawCircle(cx, cy, 117 * k, ring);
 
@@ -138,7 +138,7 @@ public class DialView extends View {
         if (litCount > 0 && litCount < 60) {
             double a = -Math.PI / 2 + (litCount / 60.0) * Math.PI * 2;
             float x = cx + (float) (104 * k * Math.cos(a)), y = cy + (float) (104 * k * Math.sin(a));
-            halo.setColor(gold ? 0x40F7E2AE : 0x38CFE0FA);
+            halo.setColor(gold ? 0x40F7E2AE : Ui.iceSoft(0x38));
             c.drawCircle(x, y, 8 * k, halo);
             halo.setColor(gold ? 0xFFFFF8E6 : 0xFFF3F8FF);
             c.drawCircle(x, y, 3 * k, halo);

@@ -189,7 +189,7 @@ public final class Icons {
             line.setStrokeJoin(Paint.Join.ROUND);
             disc.setColor(0xD90B1019);
             rim.setStyle(Paint.Style.STROKE);
-            rim.setColor(gold ? 0x40F2D38A : 0x2EAACFF6);
+            rim.setColor(gold ? 0x40F2D38A : Ui.ice(0x2E));
             text.setTypeface(Ui.SORA_LIGHT);
             text.setTextAlign(Paint.Align.CENTER);
         }

@@ -38,18 +38,22 @@ import java.util.Locale;
 public final class Ui {
     private Ui() { }
 
-    public static final int BG = 0xFF07090E;
+    public static int BG = 0xFF07090E;              // these four follow the theme (Theme.apply)
     public static final int INK = 0xFFEEF0F3;
     public static final int MUTED = 0xFFA9ACB2;
     public static final int QUIET = 0xFF8E8A80;
     public static final int GOLD = 0xFFF2D38A;
     public static final int GOLD_DEEP = 0xFFC9A85A;
     public static final int GOLD_LIGHT = 0xFFF7E2AE;
-    public static final int ICE = 0xFFAACFF6;
-    public static final int ICE_SOFT = 0xFFCFE0FA;
+    public static int ICE = 0xFFAACFF6;
+    public static int ICE_SOFT = 0xFFCFE0FA;
     public static final int STONE = 0x99060910;
     public static final int LINE = 0x14FFFFFF;
-    public static final int BORDER_ICE = 0x1FAACFF6;
+    public static int BORDER_ICE = 0x1FAACFF6;
+
+    /** The theme's accent (ice blue at night, amber in fall) at an alpha. */
+    public static int ice(int alpha) { return (alpha << 24) | (ICE & 0xFFFFFF); }
+    public static int iceSoft(int alpha) { return (alpha << 24) | (ICE_SOFT & 0xFFFFFF); }
     public static final int BORDER_GOLD = 0x24F2D38A;
     public static final int BORDER_GOLD_STRONG = 0x4DF2D38A;
 
@@ -57,6 +61,7 @@ public final class Ui {
     private static Bitmap grain;
 
     public static void init(Context c) {
+        Theme.apply(c);
         if (SORA != null) return;
         SORA_LIGHT = font(c, "sora_light");
         SORA = font(c, "sora_regular");
@@ -172,7 +177,7 @@ public final class Ui {
     }
 
     public static TextView chip(Context c, String s, boolean gold) {
-        TextView t = stone(c, s, 0xFFE6E9EF, gold ? 0x1FF2D38A : 0x1FAACFF6, 999, 13);
+        TextView t = stone(c, s, 0xFFE6E9EF, gold ? 0x1FF2D38A : Ui.ice(0x1F), 999, 13);
         t.setTypeface(SORA);
         t.setMinHeight(dp(c, 38));
         t.setPadding(dp(c, 14), 0, dp(c, 14), 0);

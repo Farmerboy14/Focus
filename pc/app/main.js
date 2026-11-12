@@ -365,7 +365,8 @@ function deskKey() {
   const t = now();
   const cur = S.current(model.sched, t);
   return S.dayKey(t) + '|' + cur.preset + '|' + cur.title + '|' + cur.start + '|' + (cur.note || '') + '|' +
-    S.upcoming(model.sched, t, 5).map(function (x) { return x.start + x.title + x.preset; }).join(',') + '|' + (clouds ? clouds.info().at : 0);
+    S.upcoming(model.sched, t, 5).map(function (x) { return x.start + x.title + x.preset; }).join(',') + '|' + (clouds ? clouds.info().at : 0) +
+    '|' + model.settings.theme + model.settings.themePhotoAt;
 }
 
 // ---------- tray ----------
@@ -563,6 +564,7 @@ function setupIpc() {
     if (a.deskStyle === 'live' || a.deskStyle === 'picture') { model.settings.deskStyle = a.deskStyle; desk = true; }
     if (a.deskSecond === 'day' || a.deskSecond === 'same') { model.settings.deskSecond = a.deskSecond; desk = true; }
     if (typeof a.phoneWifi === 'boolean') model.settings.phoneWifi = a.phoneWifi;
+    if (a.theme === 'night' || a.theme === 'fall') { model.settings.theme = a.theme; if (desktop) desktop.tick(); }
     store.save();
     if (desk && desktop) desktop.apply();
     broadcast();
@@ -624,6 +626,29 @@ function setupIpc() {
     if (MAPS[name] && earthMaps) live = earthMaps.file(MAPS[name]);
     const t = live && /\.jpg$/.test(live) ? 'image/jpeg' : type;
     return 'data:' + t + ';base64,' + fs.readFileSync(live || res('img', name)).toString('base64');
+  });
+  // Themes: the fall theme's photo is yours, picked here and kept in your Focus folder (never uploaded).
+  const themePhoto = path.join(USER_DIR, 'theme-photo.jpg');
+  handle('theme:pick', async function () {
+    const owner = BrowserWindow.getFocusedWindow() || undefined;
+    const r = await electron.dialog.showOpenDialog(owner, { title: 'Choose a photo for the Fall theme', properties: ['openFile'],
+      filters: [{ name: 'Photos', extensions: ['jpg', 'jpeg', 'png', 'webp', 'bmp'] }] });
+    if (r.canceled || !r.filePaths || !r.filePaths[0]) return { canceled: true };
+    let img = nativeImage.createFromPath(r.filePaths[0]);
+    if (img.isEmpty()) return { error: 'That file couldn\'t be opened as a picture.' };
+    const sz = img.getSize(), k = Math.min(1, 3840 / Math.max(sz.width, sz.height));
+    if (k < 1) img = img.resize({ width: Math.round(sz.width * k), height: Math.round(sz.height * k), quality: 'best' });
+    fs.writeFileSync(themePhoto + '.tmp', img.toJPEG(90));
+    fs.renameSync(themePhoto + '.tmp', themePhoto);
+    model.settings.themePhotoAt = Date.now();
+    model.settings.theme = 'fall';
+    store.save();
+    if (desktop) desktop.tick();
+    broadcast();
+    return snapshot();
+  });
+  handle('theme:photo', function () {
+    try { return 'data:image/jpeg;base64,' + fs.readFileSync(themePhoto).toString('base64'); } catch (e) { return ''; }
   });
   handle('desk:cloudinfo', function () { return clouds ? clouds.info() : { live: false, at: 0 }; });
   handle('flights:get', function (known) { return flights && model.settings.desktop ? flights.get(known) : {}; });

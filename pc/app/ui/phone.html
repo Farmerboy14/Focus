@@ -17,9 +17,9 @@
   /* The card: the widget at first, the chin once open */
   .card { position: absolute; left: 0; right: 0; bottom: 0; height: var(--fromh, 100%); border-radius: 22px;
     background-color: rgba(7, 9, 14, .86); background-image: var(--grain); background-size: 120px;
-    --ring: rgba(170, 207, 246, .16); box-shadow: inset 0 0 0 1px var(--ring), inset 0 1px 0 rgba(255, 255, 255, .05);
+    --ring: rgba(var(--ice-rgb), .16); box-shadow: inset 0 0 0 1px var(--ring), inset 0 1px 0 rgba(255, 255, 255, .05);
     transition: height var(--morph) var(--ease), box-shadow .4s ease; }
-  .shell.open .card { height: var(--chin); --ring: rgba(170, 207, 246, .2); }
+  .shell.open .card { height: var(--chin); --ring: rgba(var(--ice-rgb), .2); }
   .shell.gold .card { --ring: rgba(242, 211, 138, .3); }
 
   /* The screen: black and rounded like the phone, pinned where the mirror will sit, revealed as the shell grows */
@@ -53,10 +53,10 @@
   .next { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .shell.open .note { display: none; }
   .fold { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; opacity: 0; transform: rotate(180deg) scale(.6);
-    border: 1px solid rgba(170, 207, 246, .16); background: rgba(3, 5, 9, .6); transition: opacity .3s ease, transform .5s var(--spring); }
+    border: 1px solid rgba(var(--ice-rgb), .16); background: rgba(3, 5, 9, .6); transition: opacity .3s ease, transform .5s var(--spring); }
   .shell.open .fold { opacity: 1; transform: none; transition-delay: .25s; }
   .fold svg { width: 16px; height: 16px; }
-  .chin:hover .fold { border-color: rgba(170, 207, 246, .34); }
+  .chin:hover .fold { border-color: rgba(var(--ice-rgb), .34); }
 </style>
 </head>
 <body>

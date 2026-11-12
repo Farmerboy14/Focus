@@ -73,7 +73,7 @@ public class LockActivity extends Activity {
 
         // the block you're in
         LinearLayout card = Ui.row(this);
-        card.setBackground(new Ui.StoneDrawable(this, Ui.STONE, 0x1FAACFF6, 22));
+        card.setBackground(new Ui.StoneDrawable(this, Ui.STONE, Ui.ice(0x1F), 22));
         card.setPadding(Ui.dp(this, 14), Ui.dp(this, 14), Ui.dp(this, 18), Ui.dp(this, 14));
         dial = new DialView(this, false);
         dial.setConstellation(false);

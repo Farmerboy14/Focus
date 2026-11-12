@@ -126,7 +126,7 @@ public class ScheduleActivity extends Activity {
             boolean god = "god".equals(b.preset);
             LinearLayout row = Ui.row(this);
             row.setGravity(Gravity.TOP);
-            row.setBackground(new Ui.StoneDrawable(this, Ui.STONE, isNow ? (god ? 0x66F2D38A : 0x66AACFF6) : 0x14FFFFFF, 18));
+            row.setBackground(new Ui.StoneDrawable(this, Ui.STONE, isNow ? (god ? 0x66F2D38A : Ui.ice(0x66)) : 0x14FFFFFF, 18));
             row.setPadding(Ui.dp(this, 16), Ui.dp(this, 14), Ui.dp(this, 16), Ui.dp(this, 14));
             LinearLayout left = Ui.column(this);
             left.addView(Ui.mono(this, clock(b.start) + "–" + clock(b.end), 11, isNow ? (god ? Ui.GOLD : Ui.ICE) : Ui.MUTED));
