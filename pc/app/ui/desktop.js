@@ -21,7 +21,14 @@
   // ---------- themes ----------
   // Night: space and the Earth. Fall: your photo (picked in Settings, kept on this PC) with leaves drifting down.
   const leaves = window.FocusLeaves.Leaves($('leaves'), { seed: 41 });
-  let themeNow = null, photoAt = -1, photoReady = false;
+  let themeNow = null, photoAt = -1, photoReady = false, palette = null, paletteOn = null;
+  function usePalette() {
+    if (paletteOn === palette) return;
+    paletteOn = palette;
+    window.FocusPalette.apply(palette);
+    leaves.setColors(palette.leaves);
+    dial.refresh();
+  }
   function applyTheme() {
     const fall = !!(st && st.settings && st.settings.theme === 'fall');
     document.body.classList.toggle('theme-fall', fall);
@@ -30,10 +37,17 @@
       photoReady = false;
       api.invoke('theme:photo').then(function (url) {
         $('photo').style.backgroundImage = url ? 'url("' + url + '")' : '';
-        photoReady = true;
-        maybeDrawn();
+        if (!url) { photoReady = true; maybeDrawn(); return; }
+        // learn the photo's colours so the clock, card, dial and leaves match it
+        const img = new Image();
+        img.src = url;
+        return img.decode().then(function () {
+          palette = window.FocusPalette.fromImage(img);
+          if (themeNow) usePalette();
+        }).catch(function () { }).then(function () { photoReady = true; maybeDrawn(); });
       }).catch(function () { photoReady = true; maybeDrawn(); });
     }
+    if (!fall) { window.FocusPalette.clear(); paletteOn = null; } else if (palette) usePalette();
     if (fall === themeNow) return;
     themeNow = fall;
     if (fall) {

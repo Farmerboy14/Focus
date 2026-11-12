@@ -37,6 +37,11 @@
     svg('circle', { cx: 150, cy: 150, r: 136, fill: 'none', stroke: 'rgba(255,255,255,0.06)', 'stroke-width': 2 }, cons);
     const dots = svg('g', {}, cons);
     const star = svg('image', { width: 84, height: 84, class: 'nowstar' }, cons);
+    const leaf = svg('g', { class: 'nowleaf' }, cons);
+    const leafGlow = svg('circle', { r: 13, class: 'leafglow' }, leaf);
+    const leafBody = svg('path', { d: 'M0 -11 C7 -6 8 3 0 11 C-8 3 -7 -6 0 -11 Z' }, leaf);
+    svg('path', { d: 'M0 -9 L0 13', stroke: 'rgba(40,18,6,0.55)', 'stroke-width': 1.2, fill: 'none' }, leaf);
+    leaf.style.display = 'none';
     const inner = svg('circle', { cx: 150, cy: 150, r: 117, fill: 'none', 'stroke-width': 1 }, root);
     const ticks = [];
     for (let i = 0; i < 60; i++) {
@@ -56,9 +61,17 @@
       return gold
         ? { lit: '#F2D38A', dim: 'rgba(242,211,138,0.14)', big: 'rgba(242,211,138,0.40)', ring: 'rgba(242,211,138,0.07)', halo: 'rgba(247,226,174,0.25)', tip: '#FFF8E6' }
         : document.body.classList.contains('theme-fall')
-          ? { lit: '#F0B27A', dim: 'rgba(240,178,122,0.16)', big: 'rgba(240,178,122,0.3)', ring: 'rgba(240,178,122,0.08)', halo: 'rgba(248,217,184,0.24)', tip: '#FFF4E8' }
+          ? fallColors()
           : { lit: '#AACFF6', dim: 'rgba(170,207,246,0.14)', big: 'rgba(170,207,246,0.25)', ring: 'rgba(170,207,246,0.07)', halo: 'rgba(207,224,250,0.22)', tip: '#F3F8FF' };
     }
+
+    // Fall follows the photo's own accent colour (set on the page as --ice-rgb)
+    function fallColors() {
+      const cs = getComputedStyle(document.body);
+      const a = (cs.getPropertyValue('--ice-rgb') || '240, 178, 122').trim(), sft = (cs.getPropertyValue('--ice-soft-rgb') || '248, 217, 184').trim();
+      return { lit: 'rgb(' + a + ')', dim: 'rgba(' + a + ',0.16)', big: 'rgba(' + a + ',0.32)', ring: 'rgba(' + a + ',0.08)', halo: 'rgba(' + sft + ',0.26)', tip: '#FFF6EA' };
+    }
+    function fall() { return document.body.classList.contains('theme-fall'); }
 
     function paint(f) {
       const col = colors();
@@ -101,9 +114,20 @@
       while (dots.firstChild) dots.removeChild(dots.firstChild);
       (hours || []).forEach(function (h) {
         const th = (h / 24) * 2 * Math.PI - Math.PI / 2;
-        svg('circle', { cx: (150 + 136 * Math.cos(th)).toFixed(1), cy: (150 + 136 * Math.sin(th)).toFixed(1), r: 3, fill: '#0B1020', stroke: '#6E9BE0', 'stroke-opacity': 0.6, 'stroke-width': 1.5 }, dots);
+        svg('circle', { cx: (150 + 136 * Math.cos(th)).toFixed(1), cy: (150 + 136 * Math.sin(th)).toFixed(1), r: 3,
+          fill: fall() ? 'rgb(18,11,6)' : '#0B1020', stroke: fall() ? 'rgb(' + (getComputedStyle(document.body).getPropertyValue('--rust-rgb').trim() || '196, 98, 52') + ')' : '#6E9BE0',
+          'stroke-opacity': fall() ? 0.75 : 0.6, 'stroke-width': 1.5 }, dots);
       });
-      if (nowHour >= 0) {
+      leaf.style.display = 'none';
+      if (nowHour >= 0 && fall() && !gold) {
+        // in Fall the "now" marker is a little leaf in the photo's colour, with a soft glow
+        const th = (nowHour / 24) * 2 * Math.PI - Math.PI / 2, x = 150 + 136 * Math.cos(th), y = 150 + 136 * Math.sin(th);
+        leaf.setAttribute('transform', 'translate(' + x.toFixed(1) + ' ' + y.toFixed(1) + ') rotate(' + ((nowHour / 24) * 360 - 30).toFixed(0) + ') scale(1.35)');
+        const c = fallColors();
+        leafGlow.setAttribute('fill', c.dim); leafBody.setAttribute('fill', c.lit);
+        leaf.style.display = '';
+        star.style.display = 'none';
+      } else if (nowHour >= 0) {
         const th = (nowHour / 24) * 2 * Math.PI - Math.PI / 2;
         const s = gold ? 96 : 84;
         star.setAttribute('href', gold ? '../res/img/star_gold.png' : '../res/img/star_blue.png');
@@ -117,7 +141,10 @@
     function setGold(g) { if (gold !== !!g) { gold = !!g; paint(shown < 0 ? frac : shown); } }
 
     paint(0);
-    return { el: root, set: set, setStars: setStars, setGold: setGold, get gold() { return gold; } };
+    let starsArgs = null;
+    function refresh() { paint(shown < 0 ? frac : shown); if (starsArgs) setStars(starsArgs[0], starsArgs[1]); }
+
+    return { el: root, set: set, setStars: function (h, n) { starsArgs = [h, n]; setStars(h, n); }, setGold: setGold, refresh: refresh, get gold() { return gold; } };
   }
 
   /** Little twinkling stars over the sky picture. */

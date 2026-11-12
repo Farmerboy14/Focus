@@ -629,16 +629,26 @@ function setupIpc() {
   });
   // Themes: the fall theme's photo is yours, picked here and kept in your Focus folder (never uploaded).
   const themePhoto = path.join(USER_DIR, 'theme-photo.jpg');
+  // Picking reads the file and hands it to the settings page, which scales it with Chromium's own decoder.
+  // That decoder honours the photo's colour profile (many cameras and phones save Adobe RGB or Display P3);
+  // nativeImage ignores it, which made photos look washed out.
   handle('theme:pick', async function () {
     const owner = BrowserWindow.getFocusedWindow() || undefined;
     const r = await electron.dialog.showOpenDialog(owner, { title: 'Choose a photo for the Fall theme', properties: ['openFile'],
-      filters: [{ name: 'Photos', extensions: ['jpg', 'jpeg', 'png', 'webp', 'bmp'] }] });
+      filters: [{ name: 'Photos', extensions: ['jpg', 'jpeg', 'png', 'webp', 'avif', 'bmp'] }] });
     if (r.canceled || !r.filePaths || !r.filePaths[0]) return { canceled: true };
-    let img = nativeImage.createFromPath(r.filePaths[0]);
-    if (img.isEmpty()) return { error: 'That file couldn\'t be opened as a picture.' };
-    const sz = img.getSize(), k = Math.min(1, 3840 / Math.max(sz.width, sz.height));
-    if (k < 1) img = img.resize({ width: Math.round(sz.width * k), height: Math.round(sz.height * k), quality: 'best' });
-    fs.writeFileSync(themePhoto + '.tmp', img.toJPEG(90));
+    const f = r.filePaths[0], size = fs.statSync(f).size;
+    if (size > 80 * 1024 * 1024) return { error: 'That photo is too big (over 80 MB).' };
+    const ext = path.extname(f).slice(1).toLowerCase();
+    const mime = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', avif: 'image/avif', bmp: 'image/bmp' }[ext] || 'image/jpeg';
+    return { photo: 'data:' + mime + ';base64,' + fs.readFileSync(f).toString('base64') };
+  });
+  handle('theme:save', function (dataUrl) {
+    const m = /^data:image\/jpeg;base64,(.+)$/.exec(String(dataUrl || ''));
+    if (!m) return { error: 'That photo couldn\'t be saved.' };
+    const buf = Buffer.from(m[1], 'base64');
+    if (buf.length < 100 || buf[0] !== 0xFF || buf[1] !== 0xD8) return { error: 'That photo couldn\'t be saved.' };
+    fs.writeFileSync(themePhoto + '.tmp', buf);
     fs.renameSync(themePhoto + '.tmp', themePhoto);
     model.settings.themePhotoAt = Date.now();
     model.settings.theme = 'fall';

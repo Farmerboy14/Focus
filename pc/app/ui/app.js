@@ -757,11 +757,35 @@
       if (b.dataset.v === 'fall' && !s.settings.themePhotoAt) $('themePick').click();
     });
   });
+  // Decodes the photo the way the browser shows it (upright, colour profile converted to sRGB), then keeps it
+  // at most 3840 px on the long side as a high-quality JPEG.
+  function scalePhoto(dataUrl) {
+    const img = new Image();
+    img.src = dataUrl;
+    return img.decode()
+      .then(function () { return createImageBitmap(img); })
+      .then(function (bmp) {
+        const k = Math.min(1, 3840 / Math.max(bmp.width, bmp.height));
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(bmp.width * k)); c.height = Math.max(1, Math.round(bmp.height * k));
+        const g = c.getContext('2d');
+        g.imageSmoothingQuality = 'high';
+        g.drawImage(bmp, 0, 0, c.width, c.height);
+        bmp.close();
+        return c.toDataURL('image/jpeg', 0.93);
+      });
+  }
   $('themePick').addEventListener('click', function () {
-    call('theme:pick').then(function (s) {
-      if (s && s.error) toast(s.error);
-      else if (s && s.settings) { apply(s); toast('Fall theme on, with your photo.'); }
-    });
+    call('theme:pick').then(function (r) {
+      if (!r || r.canceled) return null;
+      if (r.error) { toast(r.error); return null; }
+      toast('Getting your photo ready…');
+      return scalePhoto(r.photo).then(function (jpeg) { return call('theme:save', jpeg); });
+    }).then(function (s) {
+      if (!s) return;
+      if (s.error) toast(s.error);
+      else if (s.settings) { apply(s); toast('Fall theme on, with your photo.'); }
+    }).catch(function () { toast('That file couldn\u2019t be opened as a picture.'); });
   });
   $('tDesk').addEventListener('click', function () { call('settings:set', { desktop: !st.settings.desktop }).then(function (s) { apply(s); }); });
   ['deskSide', 'deskStyle', 'deskSecond'].forEach(function (id) {

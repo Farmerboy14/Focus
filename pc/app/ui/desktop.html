@@ -26,19 +26,61 @@
   .blabel.sun { color: rgba(255, 226, 170, .8); }
   .blabel.moon { color: rgba(232, 232, 238, .74); }
   body.still .labels { display: none; }
-  /* Fall: the photo instead of space. Shaded toward the schedule so it stays easy to read. */
+  /* ---------- Fall: your photo instead of space ----------
+     The photo shows exactly as taken (no filter, no dimming) on the open side. Only the schedule's side gets a soft,
+     blurred copy of the same photo to sit on. Accent colours (--ice-rgb, --rust-rgb, --tint-rgb) come from the photo. */
   body.theme-fall #space, body.theme-fall .labels, body.theme-fall .earth, body.theme-fall .shade, body.theme-fall .sky, body.theme-fall #stars,
   body.theme-fall .pmark, body.theme-fall .ptip { display: none !important; }
-  /* the whole photo, softly blurred and dimmed, fills the screen; the sharp photo fills the open side, fading into it */
-  .photo { background-size: cover; background-position: center; }
-  .photo::before { content: ''; position: absolute; inset: -40px; background: inherit; filter: blur(28px) brightness(.45) saturate(1.1); }
+  body.theme-fall { --rust-rgb: 196, 98, 52; --tint-rgb: 16, 10, 6; --cream: #FFF3E3; }
+  .photo { background-size: cover; background-position: center; background-color: rgb(var(--tint-rgb, 16, 10, 6)); }
+  .photo::before { content: ''; position: absolute; inset: -60px; background: inherit; background-position: center; filter: blur(34px) brightness(.5) saturate(1.2); }
   .photo .sharp { position: absolute; top: 0; bottom: 0; left: 0; right: 37rem; background: inherit; background-size: cover; background-position: center 30%;
     -webkit-mask-image: linear-gradient(to left, transparent 0, #000 9rem); }
   body.side-left .photo .sharp { left: 37rem; right: 0; -webkit-mask-image: linear-gradient(to right, transparent 0, #000 9rem); }
-  .photo::after { background: linear-gradient(to left, rgba(10, 6, 3, .55) 0, rgba(10, 6, 3, .35) 36rem, transparent 52%),
-    linear-gradient(to bottom, rgba(10, 6, 3, .3), transparent 16%, transparent 82%, rgba(10, 6, 3, .4)); }
-  body.side-left .photo::after { background: linear-gradient(to right, rgba(10, 6, 3, .55) 0, rgba(10, 6, 3, .35) 36rem, transparent 52%),
-    linear-gradient(to bottom, rgba(10, 6, 3, .3), transparent 16%, transparent 82%, rgba(10, 6, 3, .4)); }
+  /* a warm wash under the schedule only; it starts where the photo starts to fade, so it never touches the picture */
+  .photo::after { content: ''; position: absolute; top: 0; bottom: 0; right: 0; left: auto; width: 46rem;
+    background: linear-gradient(to left, rgba(var(--tint-rgb), .58) 0, rgba(var(--tint-rgb), .4) 70%, rgba(var(--tint-rgb), 0) 100%); }
+  body.side-left .photo::after { right: auto; left: 0; background: linear-gradient(to right, rgba(var(--tint-rgb), .58) 0, rgba(var(--tint-rgb), .4) 70%, rgba(var(--tint-rgb), 0) 100%); }
+
+  /* the date with a leaf, the clock in warm cream with a glow of the photo's gold */
+  body.theme-fall .date { color: rgb(var(--ice-rgb)); display: inline-flex; align-items: center; gap: .65rem; }
+  body.theme-fall .date::before { content: ''; width: .95rem; height: .95rem; flex: none; background: linear-gradient(160deg, rgb(var(--ice-rgb)), rgb(var(--rust-rgb)));
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 1.5c4.8 3.3 6.6 9.2 0 21-6.6-11.8-4.8-17.7 0-21z'/%3E%3C/svg%3E") center / contain no-repeat; transform: rotate(-35deg); }
+  body.theme-fall .clock { color: var(--cream); text-shadow: 0 0 2.6rem rgba(var(--ice-rgb), .28), 0 .2rem 1.2rem rgba(0, 0, 0, .35); }
+  body.theme-fall .clock small { color: rgba(var(--ice-soft-rgb), .78); text-shadow: none; }
+
+  /* the card: warm glass over the blurred photo, a gold edge catching the light along the top */
+  body.theme-fall .card { background-color: rgba(var(--tint-rgb), .5); background-image: linear-gradient(155deg, rgba(var(--ice-rgb), .1), rgba(var(--rust-rgb), .05) 45%, transparent 70%);
+    backdrop-filter: blur(16px) saturate(1.25); border-color: rgba(var(--ice-rgb), .24);
+    box-shadow: inset 0 1px 0 rgba(var(--ice-soft-rgb), .16), 0 1.2rem 3rem rgba(0, 0, 0, .35); }
+  body.theme-fall .card.hit:hover { border-color: rgba(var(--ice-rgb), .45); }
+  body.theme-fall .nowlabel { color: rgb(var(--ice-rgb)); }
+  body.theme-fall .title { color: var(--cream); }
+  body.theme-fall .note { color: rgba(var(--ice-soft-rgb), .82); }
+  body.theme-fall .left { color: rgba(var(--ice-soft-rgb), .6); }
+  body.theme-fall .left b { color: rgb(var(--ice-rgb)); }
+  body.gold.theme-fall .title, body.gold.theme-fall .left b { color: var(--gold); }
+
+  body.theme-fall .act { color: var(--cream); background-color: rgba(var(--tint-rgb), .55); background-image: none; border-color: rgba(var(--ice-rgb), .2); backdrop-filter: blur(10px); }
+  body.theme-fall .act:hover { background-color: rgba(var(--tint-rgb), .75); border-color: rgba(var(--ice-rgb), .5); }
+  body.theme-fall .act.gold { color: var(--gold); }
+
+  body.theme-fall .later .label { color: rgb(var(--ice-rgb)); }
+  body.theme-fall .row { border-top-color: rgba(var(--ice-rgb), .12); }
+  body.theme-fall .row .t { color: rgba(var(--ice-soft-rgb), .62); }
+  body.theme-fall .row .n { color: var(--cream); }
+  body.theme-fall .row .p { color: rgb(var(--rust-rgb)); opacity: 1; filter: brightness(1.25); }
+  body.theme-fall .row.god .n, body.theme-fall .row.god .p { color: var(--gold); filter: none; }
+  body.theme-fall .row.hit:hover { background-color: rgba(var(--ice-rgb), .08); }
+
+  /* the verse under a hand-drawn divider: two hairlines and a leaf */
+  body.theme-fall .verse { border-top: 0; position: relative; }
+  body.theme-fall .verse::before { content: ''; position: absolute; top: 0; left: .4rem; right: .4rem; height: 1px;
+    background: linear-gradient(to right, transparent, rgba(var(--ice-rgb), .4) 30%, transparent calc(50% - 1.2rem), transparent calc(50% + 1.2rem), rgba(var(--ice-rgb), .4) 70%, transparent); }
+  body.theme-fall .verse::after { content: ''; position: absolute; top: -.5rem; left: calc(50% - .5rem); width: 1rem; height: 1rem;
+    background: linear-gradient(160deg, rgb(var(--ice-rgb)), rgb(var(--rust-rgb))); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 1.5c4.8 3.3 6.6 9.2 0 21-6.6-11.8-4.8-17.7 0-21z'/%3E%3C/svg%3E") center / contain no-repeat; transform: rotate(40deg); }
+  body.theme-fall .verse q { color: var(--cream); }
+  body.theme-fall .verse span { color: rgb(var(--ice-rgb)); opacity: .85; }
 
   /* Live flights */
   body.onplane #space, body.onworld #space { cursor: pointer; }
@@ -260,6 +302,7 @@
 <script src="common.js"></script>
 <script src="stars.js"></script>
 <script src="leaves.js"></script>
+<script src="palette.js"></script>
 <script src="stars-data.js"></script>
 <script src="sky.js"></script>
 <script src="worlds.js"></script>

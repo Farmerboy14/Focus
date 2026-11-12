@@ -1,18 +1,26 @@
-// Leaves drifting down for the Fall theme: a few dozen, tumbling and swaying, on a 2D canvas over the photo.
+// Leaves drifting down for the Fall theme, tumbling and swaying on a 2D canvas over the photo. Three depths:
+// a few big soft-focus leaves close by, most in the middle, small slow ones far off. Colours come from the photo.
 (function (root) {
   'use strict';
-  const COLORS = ['#D9822B', '#B5491E', '#E8B04A', '#8C4A22', '#C86A2C', '#A23B18'];
+  let COLORS = ['#D9822B', '#B5491E', '#E8B04A', '#8C4A22', '#C86A2C', '#A23B18'];
 
   function Leaves(canvas, opts) {
     opts = opts || {};
-    const ctx = canvas.getContext('2d');
+    let ctx = canvas.getContext('2d');
     const n = opts.count || 26;
     let seed = opts.seed || 29;
     const rnd = function () { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
     const L = [];
+    let colors = COLORS.slice();
     for (let i = 0; i < n; i++) {
-      L.push({ x: rnd(), off: rnd(), speed: 0.012 + 0.02 * rnd(), sway: 0.015 + 0.035 * rnd(), ph: rnd() * 6.283, size: 9 + 13 * rnd(),
-        spin: 25 + 60 * rnd(), col: COLORS[i % COLORS.length], kind: i % 3 });
+      // every 7th leaf is near (big, blurred, quicker); every 4th is far (small, faint, slow)
+      const z = i % 7 === 3 ? 2 : i % 4 === 1 ? 0 : 1;
+      const size = z === 2 ? 30 + 16 * rnd() : z === 0 ? 6 + 4 * rnd() : 10 + 12 * rnd();
+      const speed = (z === 2 ? 0.032 : z === 0 ? 0.008 : 0.012) + (z === 2 ? 0.014 : 0.016) * rnd();
+      // near leaves keep to the very edges of the screen, so they frame the picture and never cross faces or the schedule
+      const x = z === 2 ? (i % 2 ? 0.005 + 0.035 * rnd() : 0.96 + 0.035 * rnd()) : rnd();
+      L.push({ x: x, off: rnd(), speed: speed, sway: z === 2 ? 0.006 + 0.006 * rnd() : 0.015 + 0.035 * rnd(), ph: rnd() * 6.283, size: size,
+        spin: 25 + 60 * rnd(), ci: i, kind: i % 3, z: z, alpha: z === 2 ? 0.72 : z === 0 ? 0.55 : 0.86 });
     }
     let raf = 0, running = false, last = 0;
 
@@ -41,6 +49,20 @@
       ctx.closePath();
     }
 
+    const sprites = {};
+    function sprite(kind, col) {
+      const key = kind + col;
+      if (sprites[key]) return sprites[key];
+      const S = 96, c = document.createElement('canvas');
+      c.width = c.height = S;
+      const g = c.getContext('2d');
+      g.filter = 'blur(4px)';
+      g.translate(S / 2, S / 2); g.scale(S / 1.5, S / 1.5);
+      const keep = ctx; ctx = g; shape(kind); ctx = keep;
+      g.fillStyle = col; g.fill();
+      return (sprites[key] = c);
+    }
+
     function draw(t) {
       const dpr = fit(), w = canvas.width, h = canvas.height, s = t / 1000;
       ctx.clearRect(0, 0, w, h);
@@ -52,8 +74,13 @@
         ctx.translate(x, y);
         ctx.rotate((Math.sin(s * 0.45 + l.ph) * l.spin + i * 37) * Math.PI / 180);
         ctx.scale(size, size * (0.7 + 0.3 * Math.cos(s * 1.2 + l.ph)));
-        ctx.globalAlpha = 0.82;
-        ctx.fillStyle = l.col;
+        ctx.globalAlpha = l.alpha;
+        if (l.z === 2) {   // near leaves: a soft-focus sprite made once, so no blur is worked out each frame
+          ctx.drawImage(sprite(l.kind, colors[l.ci % colors.length]), -0.75, -0.75, 1.5, 1.5);
+          ctx.restore();
+          return;
+        }
+        ctx.fillStyle = colors[l.ci % colors.length];
         shape(l.kind);
         ctx.fill();
         ctx.globalAlpha = 0.35;
@@ -75,7 +102,9 @@
     return {
       start: function () { if (running) return; running = true; raf = requestAnimationFrame(tick); },
       stop: function () { running = false; cancelAnimationFrame(raf); },
-      still: function () { running = false; draw(41000); }
+      still: function () { running = false; draw(41000); },
+      /** New leaf colours (the photo's), drawn from the next frame on. */
+      setColors: function (list) { if (list && list.length) { colors = list.slice(); if (!running) draw(41000); } }
     };
   }
 

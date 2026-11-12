@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.ColorSpace;
 import android.graphics.ImageDecoder;
 import android.net.Uri;
 
@@ -74,6 +75,8 @@ public final class Theme {
                 float k = Math.min(1f, 2400f / Math.max(w, h));
                 d.setTargetSize(Math.max(1, Math.round(w * k)), Math.max(1, Math.round(h * k)));
                 d.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE);
+                // convert wide-gamut photos (Display P3, Adobe RGB) to sRGB so the saved JPEG keeps its true colours
+                d.setTargetColorSpace(ColorSpace.get(ColorSpace.Named.SRGB));
             }
         });
         File tmp = new File(c.getFilesDir(), "theme_photo.tmp");
